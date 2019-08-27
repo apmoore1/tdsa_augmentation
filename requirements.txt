@@ -1,0 +1,3 @@
+pylint
+allennlp
+-e git+git://github.com/apmoore1/target-extraction@master#egg=target-extraction
