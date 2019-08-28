@@ -56,6 +56,11 @@ Now that we have some strong semantic equivalent candidate words, we can shrink 
 
 *The reason why we filter the targets using the Word Vectors and then use the language models to fine tune the semantic equivalent targets is due to the time it would take to run the language models for each target against each target for each training instance. This is very similar to a combination of the following two papers [1](https://www.aclweb.org/anthology/D15-1306/), [2](https://www.aclweb.org/anthology/P19-1328/) the former performs data augmentation based on top N similar words from a word embedding and the latter shows that using a BERT model's similarity between the original and the word substitution sentences are useful for evaluating lexical substitution.* 
 
+Thus we are now going to create the fully expanded training dataset for each of the domains/datasets. This dataset will be exactly the same as the original training datasets that are currently json files, however there will be extra fields denoted by the index of the target where it will contain a list of semantically equivalent targets for that target at that index. An example of one sentence that contains multiple targets and it's equivalent targets is shown below: 
+``` bash
+python tdsa_augmentation/data_augmentation/lm_expander_data_creator.py ./resources/data_augmentation/target_words/laptop_train_expanded.json nothing 20.0 ./data/original_laptop_sentiment/train.json nothing
+```
+
 ## Finding new Targets by through semi-supervision
 In this section we will train a state of the art Target Extraction system to extract targets from large un-labeled text corpora. The state of the art Target Extraction system is simply a Bi-Directional LSTM with 50 hidden units that has been given two word representations:
 1. The 840 billion token 300 dimension Glove vector.

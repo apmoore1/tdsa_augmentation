@@ -47,19 +47,19 @@ if __name__=='__main__':
         word_sim_value = embedding.wv.most_similar(positive=[mwe], topn=args.N + 1)
         temp_similar_targets = sorted(word_sim_value, key=lambda x: x[1])
         is_mwe_in_sim_targets = False
-        for target, sim in temp_similar_targets:
-            if mwe == target:
+        for sim_target, sim in temp_similar_targets:
+            if mwe == sim_target or sim_target == target:
                 is_mwe_in_sim_targets = True
         if not is_mwe_in_sim_targets:
             temp_similar_targets = temp_similar_targets[1:]
         temp_similar_targets = [word for word, sim in temp_similar_targets]
         similar_targets = []
-        for target in temp_similar_targets:
-            if target in mwe_target:
-                target = mwe_target[target].strip()
+        for sim_target in temp_similar_targets:
+            if sim_target in mwe_target:
+                sim_target = mwe_target[sim_target].strip()
             else:
-                target = ' '.join(target.split('_')).strip()
-            similar_targets.append(target)
+                sim_target = ' '.join(sim_target.split('_')).strip()
+            similar_targets.append(sim_target)
         assert len(set(similar_targets)) == len(similar_targets)
         assert args.N == len(similar_targets), print(len(similar_targets))
         target_similar_targets[target] = similar_targets
