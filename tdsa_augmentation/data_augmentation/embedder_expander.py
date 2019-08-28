@@ -1,118 +1,71 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple, Callable
+from typing import Dict, List
 
-from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
-from target_extraction.data_types import TargetTextCollection
 from gensim.models.word2vec import Word2Vec
 
-from augmentation_helper import word_embedding_augmentation
+from tdsa_augmentation.helpers.general_helper import multi_word_targets
 
 def parse_path(path_string: str) -> Path:
     path_string = Path(path_string).resolve()
     return path_string
 
-def allen_spacy_tokeniser(text: str) -> Callable[[str], List[str]]:
-    '''
-    Returns the allennlp English spacy tokeniser as a callable function which 
-    takes a String and returns a List of tokens/Strings.
-    '''
-    splitter = SpacyWordSplitter()
-    return [token.text for token in splitter.split_words(text)]
-
-def augmented_dataset(target_related_words_sim: Dict[str, List[Tuple[str, float]]],
-                      dataset: TargetCollection, save_fp: Path, lower: bool
-                      ) -> None:
-    '''
-    Given a dictionary of target words from the training dataset and the 
-    values being all of the related words with their similarity score associated 
-    to the target key, TDSA training dataset it will for each sample in the 
-    training set check if the sample's target exists as a key in the given 
-    dictionary and if so write the sample to the save file along with the 
-    related targets and similarity scores under the following keys; 
-    `alternative_targets` and `alternative_similarity`
-    '''
-    training_targets_in_embeddings = set(list(target_related_words_sim.keys()))
-    with save_fp.open('w+') as save_file:
-        count = 0
-        for target_dict in dataset.data_dict():
-            original_target = target_dict['target']
-            if lower:
-                original_target = original_target.lower()
-            if original_target in training_targets_in_embeddings:
-                alt_targets_similarity = target_related_words_sim[original_target]
-                alt_targets_similarity = sorted(alt_targets_similarity, 
-                                                key=lambda x: x[1], reverse=True)
-                different_targets = [target for target, _ in alt_targets_similarity]
-                alternative_similarity = [similarity for _, similarity in alt_targets_similarity]
-                target_dict['alternative_targets'] = different_targets
-                target_dict['alternative_similarity'] = alternative_similarity
-                target_dict['epoch_number'] = list(target_dict['epoch_number'])
-                json_target_dict = json.dumps(target_dict)
-                if count != 0:
-                    json_target_dict = f'\n{json_target_dict}'
-                count += 1
-                save_file.write(json_target_dict)
-
 if __name__=='__main__':
-    '''
-    This will create a file which will be saved at the location stated within 
-    the `augmented_dataset_fp` argument that is json data where each line is an 
-    original target however it will have two extra values within the usual 
-    target dictionary:
-    1. `alternative_targets` -- A list of alternative targets that can be 
-       used instead of the one given
-    2. `alternative_similarity` -- A list of cosine similarity scores for the 
-       alternative targets. The simialrity is of the original target and the 
-       alternative targets.
-    
-    The first and second lists are indexed the same i.e. 2nd target 
-    corresponds to the second similarity score. Also the lists have been 
-    ordered by highest similarity score first.
-
-    NOTE: Unlike the language model the similarity between the alternative 
-    target the original is the same non matter the sentence it came from which 
-    is not True for the language model therefore the similarity scores are not 
-    sentence dependent compared to the language model perplexity score. 
-    Therefore in theory we only need unique training targets and there 
-    alternatives but we want the output to be as similar to the output of 
-    `./augment_transformer.py`.
-    NOTE: Unlike the transformer language model note every training target 
-    will have alternatives targets as they might not exist in the embedding.
-    '''
-    tokeniser_choices = ['spacy']
+    save_fp_help = 'File Path to save the targets and there top N most similar'\
+                   ' words as a json dictionary of {`target`: List[similar targets]}'
     parser = argparse.ArgumentParser()
-    augmented_dataset_help = "File Path to save the augmented dataset where "\
-                             "each new line will contain a json dictionary "\
-                             "that will have the standard Target data from "\
-                             "the original dataset but will also include two "\
-                             "additional fields: 1. `alternative_targets` 2. "\
-                             "`alternative_similarity` "
-    parser.add_argument("train_fp", help="File path to the training data", 
-                        type=parse_path)
-    parser.add_argument("embedding_fp", help="File path to the embedding",
-                        type=parse_path)
-    parser.add_argument("additional_targets_fp", type=parse_path,
-                        help='File Path to additional targets')
-    parser.add_argument("augmented_dataset_fp", type=parse_path, 
-                        help=augmented_dataset_help)
-    parser.add_argument("tokeniser", type=str, choices=tokeniser_choices)
-    parser.add_argument("--lower", action="store_true")
+    parser.add_argument("target_list_data_fp", type=parse_path, 
+                        help='File path to the list of targets')
+    parser.add_argument("embedding_fp", type=parse_path, 
+                        help='File path to the embedding that will expand the targets')
+    parser.add_argument("N", type=int, 
+                        help='Top N similar targets to expand each target')
+    parser.add_argument("save_fp", type=parse_path, help=save_fp_help)
     args = parser.parse_args()
 
-    # Load tokeniser
-    if args.tokeniser == 'spacy':
-        tokeniser = allen_spacy_tokeniser
-    else:
-        raise ValueError(f'Tokeniser has to be one of the following {tokeniser_choices}')
+    targets = set()
+    with args.target_list_data_fp.open('r') as target_list_file:
+        for line in target_list_file:
+            line = line.strip()
+            if not line:
+                continue
+            targets.add(line.lower())
+    targets = list(targets)
+    target_mwe: Dict[str, str] = multi_word_targets(targets, lower=True)
+    # Mapper to map targets from that contain `_` from the `multi_word_targets`
+    # function back to normally perfectly without tokenization error. Cannot 
+    # be done for all
+    mwe_target = {mwe: target for target, mwe in target_mwe.items()}
 
-    training_data = TargetCollection.load_from_json(args.train_fp)
     embedding = Word2Vec.load(str(args.embedding_fp))
-    target_related_words_sim: Dict[str, List[Tuple[str, float]]]
-    target_related_words_sim = word_embedding_augmentation(training_data, embedding,
-                                                           lower=args.lower, 
-                                                           k_nearest=-1,
-                                                           tokeniser=tokeniser)
-    augmented_dataset(target_related_words_sim, training_data, 
-                      args.augmented_dataset_fp, lower=args.lower)
+    # Targets that are in the embedding
+    embedding_targets_mwe = {target: mwe for target, mwe in target_mwe.items()
+                             if mwe in embedding.wv}
+    target_similar_targets: Dict[str, List[str]] = {}
+    for target, mwe in embedding_targets_mwe.items():
+        word_sim_value = embedding.wv.most_similar(positive=[mwe], topn=args.N + 1)
+        temp_similar_targets = sorted(word_sim_value, key=lambda x: x[1])
+        is_mwe_in_sim_targets = False
+        for target, sim in temp_similar_targets:
+            if mwe == target:
+                is_mwe_in_sim_targets = True
+        if not is_mwe_in_sim_targets:
+            temp_similar_targets = temp_similar_targets[1:]
+        temp_similar_targets = [word for word, sim in temp_similar_targets]
+        similar_targets = []
+        for target in temp_similar_targets:
+            if target in mwe_target:
+                target = mwe_target[target].strip()
+            else:
+                target = ' '.join(target.split('_')).strip()
+            similar_targets.append(target)
+        assert len(set(similar_targets)) == len(similar_targets)
+        assert args.N == len(similar_targets), print(len(similar_targets))
+        target_similar_targets[target] = similar_targets
+    
+    args.save_fp.parent.mkdir(parents=True, exist_ok=True)
+    with args.save_fp.open('w+') as save_file:
+        json.dump(target_similar_targets, save_file)
+
+    

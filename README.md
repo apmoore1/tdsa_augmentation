@@ -46,7 +46,15 @@ Where TL stands for Target Length e.g. TL 2 is a multi word target that is made 
 
 As we can see the embedding has a high coverage of targets that are not Multi Word Expressions (MWE), but do capture some MWEs and overall cover a minimum of 47% of the target words in all of the datasets.
 
-We thus want to use these embeddings to find targets that are semantically similar, therefore for each target find the top *N* most similar target words. In our case we use *N=15* (15 is just an arbitary number we have choosen and will be better tuned in the later process when using the language models):
+We thus want to use these embeddings to find targets that are semantically similar, therefore for each target find the top *N* most similar target words. In our case we use *N=15* (15 is just an arbitrary number we have chosen and will be better tuned in the later process when using the language models):
+``` bash
+./tdsa_augmentation/data_augmentation/train_targets_embedding_expander.sh
+```
+All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_train.json`, 2. `restaurant_train.json`, 3. `election_train.json`
+
+Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the language models perplexity score for that sentence is less than (less in perplexity is better) the perplexity score the language model achieved on it's own test set then the candidate target is kept for that target for that training instance. **NOTE** As we are using the language models per training instance, each target can have a different semantic equivalent target lists per training instance as the language model will have a different score for each target based on how well it fits into the sentence.
+
+*The reason why we filter the targets using the Word Vectors and then use the language models to fine tune the semantic equivalent targets is due to the time it would take to run the language models for each target against each target for each training instance. This is very similar to a combination of the following two papers [1](https://www.aclweb.org/anthology/D15-1306/), [2](https://www.aclweb.org/anthology/P19-1328/) the former performs data augmentation based on top N similar words from a word embedding and the latter shows that using a BERT model's similarity between the original and the word substitution sentences are useful for evaluating lexical substitution.* 
 
 ## Finding new Targets by through semi-supervision
 In this section we will train a state of the art Target Extraction system to extract targets from large un-labeled text corpora. The state of the art Target Extraction system is simply a Bi-Directional LSTM with 50 hidden units that has been given two word representations:
