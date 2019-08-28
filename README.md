@@ -22,9 +22,20 @@ The datasets we are going to look at are the following of which follow the relev
 
 To create the training, validation and testing datasets for the Sentiment prediction task of TDSA run the following command:
 ```
-./data/create_sentiment_splits.sh
+./tdsa_augmentation/data_creation/create_sentiment_splits.sh
 ```
 The validation and test sets are roughly equal in size.
+
+## Augmenting the datasets through existing targets
+In this approach we are only going to use the targets that have occurred in the training dataset to augment the current training datasets. First we need to extract out all of the targets in the training datasets and store each of them in `./resources/target_words` as `restaurant_train.txt`, `laptop_train.txt`, and `election_train.txt`:
+``` bash
+./tdsa_augmentation/data_creation/extract_targets_from_train_json.sh 
+```
+
+The starting point of our data augmentation first starts by finding candidate targets for each target where the candidates are semantically equivalent targets for each target. To do this we are going to use our domain specific word embeddings to find those equivalent targets. To do so we first want to know how many of the targets (lower cased) are in our domain specific embeddings:
+``` bash
+./tdsa_augmentation/statistics/target_in_embedding_stats.sh
+```
 
 ## Finding new Targets by through semi-supervision
 In this section we will train a state of the art Target Extraction system to extract targets from large un-labeled text corpora. The state of the art Target Extraction system is simply a Bi-Directional LSTM with 50 hidden units that has been given two word representations:

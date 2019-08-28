@@ -3,3 +3,5 @@ data/SemEval'14-ABSA-TrainData_v2 & AnnotationGuidelines
 data/original*
 data/twitter_election_dataset
 .vscode
+__pycache__
+resources
