@@ -36,6 +36,17 @@ The starting point of our data augmentation first starts by finding candidate ta
 ``` bash
 ./tdsa_augmentation/statistics/target_in_embedding_stats.sh
 ```
+| Dataset    | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3     |
+|------------|-----------------------------|-------------|------------|----------|
+| Laptop     | 801 (423)                   | 325 (320)   | 309 (103)  | 167 (0)  |
+| Restaurant | 962 (474)                   | 415 (404)   | 336 (70)   | 211 (0)  |
+| Election   | 1714 (1102)                 | 1095 (892)  | 481 (207)  | 138 (3)  |
+
+Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens".
+
+As we can see the embedding has a high coverage of targets that are not Multi Word Expressions (MWE), but do capture some MWEs and overall cover a minimum of 50% of the target words in all of the datasets.
+
+We thus want to use these embeddings to find targets that are semantically similar, therefore for each target find the top *N* most similar target words. In our case we use *N=15* (15 is just an arbitary number we have choosen and will be better tuned in the later process when using the language models):
 
 ## Finding new Targets by through semi-supervision
 In this section we will train a state of the art Target Extraction system to extract targets from large un-labeled text corpora. The state of the art Target Extraction system is simply a Bi-Directional LSTM with 50 hidden units that has been given two word representations:
