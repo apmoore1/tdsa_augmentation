@@ -38,13 +38,13 @@ The starting point of our data augmentation first starts by finding candidate ta
 ```
 | Dataset    | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3     |
 |------------|-----------------------------|-------------|------------|----------|
-| Laptop     | 801 (423)                   | 325 (320)   | 309 (103)  | 167 (0)  |
-| Restaurant | 962 (474)                   | 415 (404)   | 336 (70)   | 211 (0)  |
-| Election   | 1714 (1102)                 | 1095 (892)  | 481 (207)  | 138 (3)  |
+| Laptop     | 739 (373)                   | 280 (275)   | 296 (98)   | 163 (0)  |
+| Restaurant | 914 (434)                   | 379 (368)   | 326 (66)   | 209 (0)  |
+| Election   | 1496 (915)                  | 936 (746)   | 429 (166)  | 131 (3)  |
 
 Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens".
 
-As we can see the embedding has a high coverage of targets that are not Multi Word Expressions (MWE), but do capture some MWEs and overall cover a minimum of 50% of the target words in all of the datasets.
+As we can see the embedding has a high coverage of targets that are not Multi Word Expressions (MWE), but do capture some MWEs and overall cover a minimum of 47% of the target words in all of the datasets.
 
 We thus want to use these embeddings to find targets that are semantically similar, therefore for each target find the top *N* most similar target words. In our case we use *N=15* (15 is just an arbitary number we have choosen and will be better tuned in the later process when using the language models):
 

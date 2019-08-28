@@ -48,7 +48,7 @@ if __name__ == '__main__':
                 continue
             targets.add(line)
     targets = list(targets)
-    targets = multi_word_targets(targets, lower=True)
+    targets = list(multi_word_targets(targets, lower=True).values())
 
     embedding = Word2Vec.load(str(args.embedding_fp))
     # Targets that are in the embedding
