@@ -52,14 +52,36 @@ We thus want to use these embeddings to find targets that are semantically simil
 ```
 All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_train.json`, 2. `restaurant_train.json`, 3. `election_train.json`
 
-Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the language models perplexity score for that sentence is less than (less in perplexity is better) the perplexity score the language model achieved on it's own test set then the candidate target is kept for that target for that training instance. **NOTE** As we are using the language models per training instance, each target can have a different semantic equivalent target lists per training instance as the language model will have a different score for each target based on how well it fits into the sentence.
+Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the language models perplexity score for that sentence is less than (less in perplexity is better) the perplexity score of the original sentence then the target will be added to that training instance. **NOTE** As we are using the language models per training instance, each target can have a different semantic equivalent target lists per training instance as the language model will have a different score for each target based on how well it fits into the sentence.
 
 *The reason why we filter the targets using the Word Vectors and then use the language models to fine tune the semantic equivalent targets is due to the time it would take to run the language models for each target against each target for each training instance. This is very similar to a combination of the following two papers [1](https://www.aclweb.org/anthology/D15-1306/), [2](https://www.aclweb.org/anthology/P19-1328/) the former performs data augmentation based on top N similar words from a word embedding and the latter shows that using a BERT model's similarity between the original and the word substitution sentences are useful for evaluating lexical substitution.* 
 
 Thus we are now going to create the fully expanded training dataset for each of the domains/datasets. This dataset will be exactly the same as the original training datasets that are currently json files, however there will be extra fields denoted by the index of the target where it will contain a list of semantically equivalent targets for that target at that index. An example of one sentence that contains multiple targets and it's equivalent targets is shown below: 
-``` bash
-python tdsa_augmentation/data_augmentation/lm_expander_data_creator.py ./resources/data_augmentation/target_words/laptop_train_expanded.json nothing 20.0 ./data/original_laptop_sentiment/train.json nothing
+``` json
+{"text": "It appears that many lefties are unable to tell the difference between tax evasion and tax avoidance #bbcqt", "text_id": "68544488139964416", "targets": ["tax avoidance", "tax evasion"], "spans": [[87, 100], [71, 82]], "target_sentiments": ["neutral", "neutral"], "target 0": ["tax avoidance", "tax evasion"], "target 1": ["tax evasion", "libor", "tax avoidance"]}
 ```
+To create these expanded training datasets run the following bash script which will produce expanded datasets for the laptop, restaurant and election domain at the following paths respectively `./data/augmented_train/laptop.json`, `./data/augmented_train/restaurant.json`, `./data/augmented_train/election.json`
+``` bash
+./tdsa_augmentation/data_augmentation/augmented_lm_train_dataset.sh
+```
+
+Now that we have the augmented training dataset we shall see how many new training samples we have (to get this table data run the command above the table and below this):
+
+``` bash
+./tdsa_augmentation/statistics/training_num_additional_targets.sh
+```
+
+| Dataset    | Num samples  | Can be expanded | Expanded | More samples |
+|------------|--------------|-----------------|----------|--------------|
+| Laptop     | 1661         | 1040            |    528   | 1338         |
+| Restaurant | 2490         | 1829            |    675   | 1774         |
+| Election   | 6811         | 2370            |    1794  | 7184         |
+
+We can see from the table above the limited number of targets in the word embedding reduces the number of targets that can be expanded by up to 66% shown by the `Can be expanded` column, further more the language model reduces this further as shown by the `Expanded` column. However in the case of the Election dataset the language model finds out of the *15* candidate targets (15 comes from the fact the embedder expanded each target by 15 (the *N* parameter)) a large proportion of them are good candidates. Lastly the fact that the language model finds a lot of these candidates to be good candidates it still only expands the dataset by just over 100% in the best case and 71% in the worse case. This expansion is fairly small considering it can be between 510% and 1095% of the training dataset if all 15 candidate targets are accepted by the language model. Furthermore the larger the choice of different semanticaly equivalent targets per target the more flexible the training dataset expansion can be.
+
+**What could be a good idea is to plot the target expander distribution and show that**
+
+To create a potentially larger training dataset and to induce more unseen targets into the dataset we are going to find new targets through Semi-Supervision.
 
 ## Finding new Targets by through semi-supervision
 In this section we will train a state of the art Target Extraction system to extract targets from large un-labeled text corpora. The state of the art Target Extraction system is simply a Bi-Directional LSTM with 50 hidden units that has been given two word representations:
