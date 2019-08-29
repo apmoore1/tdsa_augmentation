@@ -105,10 +105,10 @@ All trained Target Extraction systems are saved within the `./resources/data_aug
 
 To re-create these results and create the predicted target extraction sequences from the large un-labeled text corpora which can be found in `./resources/predicted_targets` and thus steps 1 and 2 from above run the following command:
 ``` bash
-./data_augmentation/run_train_predict.sh
+./tdsa_augmentation/data_augmentation/run_train_predict.sh
 ```
 
 As the Target Extraction systems have been trained and have outputted there predictions on the `relevant large un-labeled text corpora` we can now extract out the 90% confident targets for each dataset and store them in `./resources/target_words` as `restaurant_predicted.txt`, `laptop_predicted.txt`, and `election_predicted.txt`:
 ```
-./data_augmentation/extract_predicted_targets.sh.sh
+./tdsa_augmentation/data_augmentation/extract_predicted_targets.sh
 ```
