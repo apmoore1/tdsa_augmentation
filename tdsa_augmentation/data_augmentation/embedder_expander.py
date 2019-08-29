@@ -43,6 +43,7 @@ if __name__=='__main__':
     embedding_targets_mwe = {target: mwe for target, mwe in target_mwe.items()
                              if mwe in embedding.wv}
     target_similar_targets: Dict[str, List[str]] = {}
+    error_count = 0
     for target, mwe in embedding_targets_mwe.items():
         word_sim_value = embedding.wv.most_similar(positive=[mwe], topn=args.N + 1)
         temp_similar_targets = sorted(word_sim_value, key=lambda x: x[1])
@@ -60,10 +61,14 @@ if __name__=='__main__':
             else:
                 sim_target = ' '.join(sim_target.split('_')).strip()
             similar_targets.append(sim_target)
-        assert len(set(similar_targets)) == len(similar_targets)
+        try:
+            assert len(set(similar_targets)) == len(similar_targets), f'{similar_targets}'
+        except:
+            error_count +=1
+            continue
         assert args.N == len(similar_targets), print(len(similar_targets))
         target_similar_targets[target] = similar_targets
-    
+    print(f'Error count {error_count}')
     args.save_fp.parent.mkdir(parents=True, exist_ok=True)
     with args.save_fp.open('w+') as save_file:
         json.dump(target_similar_targets, save_file)

@@ -50,7 +50,7 @@ We thus want to use these embeddings to find targets that are semantically simil
 ``` bash
 ./tdsa_augmentation/data_augmentation/train_targets_embedding_expander.sh
 ```
-All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_train.json`, 2. `restaurant_train.json`, 3. `election_train.json`
+All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_train_expanded.json`, 2. `restaurant_train_expanded.json`, 3. `election_train_expanded.json`
 
 Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the language models perplexity score for that sentence is less than (less in perplexity is better) the perplexity score of the original sentence then the target will be added to that training instance. **NOTE** As we are using the language models per training instance, each target can have a different semantic equivalent target lists per training instance as the language model will have a different score for each target based on how well it fits into the sentence.
 
@@ -108,7 +108,49 @@ To re-create these results and create the predicted target extraction sequences 
 ./tdsa_augmentation/data_augmentation/run_train_predict.sh
 ```
 
-As the Target Extraction systems have been trained and have outputted there predictions on the `relevant large un-labeled text corpora` we can now extract out the 90% confident targets for each dataset and store them in `./resources/target_words` as `restaurant_predicted.txt`, `laptop_predicted.txt`, and `election_predicted.txt`:
-```
+As the Target Extraction systems have been trained and have outputted there predictions on the `relevant large un-labeled text corpora` we can now extract out the 90% confident targets for each dataset and store them in `./resources/target_words` as `restaurant_predicted.txt`, `laptop_predicted.txt`, and `election_predicted.txt`. The targets that have been stored are not all of the targets just those that do not appear in the relevant training datasets:
+``` bash
 ./tdsa_augmentation/data_augmentation/extract_predicted_targets.sh
 ```
+
+All of the statistics below are number of unique lower cased targets from their relevant sources.
+
+| Dataset    | Num in Train (T) | Num Predicted (P) | P\T     | T\P | $P\capT$ |
+|------------|------------------|-------------------|---------|-----|----------|
+| Laptop     | 739              | 22,923            | 22,483  | 299 | 440      |
+| Restaurant | 914              | 50,697            | 50,129  | 346 | 568      |
+| Election   | 1496             | 148,179           | 147,390 | 707 | 789      |
+
+As we can the majority of the predicted targets have never been seen before in the training set, further more there are some targets (T\P) that have only ever been seen in the training, which is great as this means the training targets are still useful and high quality.
+
+Next we are going to c
+``` bash
+./tdsa_augmentation/statistics/predicted_target_in_embedding_stats.sh
+```
+
+| Dataset    | Num Targets (In Embedding)  | TL 1             | TL 2           | TL 3        |
+|------------|-----------------------------|------------------|----------------|-------------|
+| Laptop     | 22,483 (5,922)              | 4,971 (4,131)    | 12,358 (1,791) | 5,154 (0)   |
+| Restaurant | 50,129 (8,597)              | 5,661 (5,087)    | 24,600 (3,510) | 19,868 (0)  |
+| Election   | 147,390 (51,572)            | 123,248 (44,426) | 21,929 (6,532) | 2,213 (614) |
+
+As we can see even though we have extracted a lot of targets that have never been seen only a subset of them can be used due to the embedding not containing all of the targets.
+
+We now need to combine the targets from the training with the predicted targets so that we can expand the training dataset using both the predicted and training targets.
+``` bash
+./tdsa_augmentation/combine_target_words.sh
+```
+This creates three new target word list within the following folder `./resources/target_words` for the laptop, restaurant, and election datasets respectively with these file names `all_laptop.txt`, `all_restaurant.txt`, `all_election.txt`
+
+Like before we are now going to use these predicted and training targets to find similar targets using the embedder for the training samples:
+``` bash
+./tdsa_augmentation/data_augmentation/predicted_train_targets_embedding_expander.sh
+```
+All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_predicted_train_expanded.json`, 2. `restaurant_predicted_train_expanded.json`, 3. `election_predicted_train_expanded.json`
+
+To create these expanded training datasets run the following bash script which will produce expanded datasets for the laptop, restaurant and election domain at the following paths respectively `./data/augmented_train/laptop_predicted.json`, `./data/augmented_train/restaurant_predicted.json`, `./data/augmented_train/election_predicted.json`
+``` bash
+./tdsa_augmentation/data_augmentation/augmented_lm_predicted_train_dataset.sh
+```
+
+python tdsa_augmentation/data_augmentation/lm_expander_data_creator.py ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json ./resources/language_models/amazon_model.tar.gz ./data/original_laptop_sentiment/train. ./data/augmented_train/laptop_predicted.json --cuda
