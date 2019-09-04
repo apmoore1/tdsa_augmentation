@@ -148,9 +148,17 @@ Like before we are now going to use these predicted and training targets to find
 ```
 All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_predicted_train_expanded.json`, 2. `restaurant_predicted_train_expanded.json`, 3. `election_predicted_train_expanded.json`
 
+We want to find out the number of targets that came from the predicted targets that are in the *N* most similar targets.
+``` bash
+
+```
+
 To create these expanded training datasets run the following bash script which will produce expanded datasets for the laptop, restaurant and election domain at the following paths respectively `./data/augmented_train/laptop_predicted.json`, `./data/augmented_train/restaurant_predicted.json`, `./data/augmented_train/election_predicted.json`
 ``` bash
 ./tdsa_augmentation/data_augmentation/augmented_lm_predicted_train_dataset.sh
 ```
 
-python tdsa_augmentation/data_augmentation/lm_expander_data_creator.py ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json ./resources/language_models/amazon_model.tar.gz ./data/original_laptop_sentiment/train. ./data/augmented_train/laptop_predicted.json --cuda
+
+python tdsa_augmentation/statistics/number_additional_targets.py ./data/augmented_train/laptop_predicted.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
+
+python tdsa_augmentation/statistics/number_target_in_similar.py ./resources/target_words/laptop_predicted.txt ./data/original_laptop_sentiment/train.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
