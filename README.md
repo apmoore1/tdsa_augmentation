@@ -11,7 +11,7 @@ The Word vectors created from this repository should be stored in the following 
 The following language models should be stored in this folder: `./resources/language_models`
 
 1. The non-domain specific ELMo Transformer from the following [paper](https://www.aclweb.org/anthology/D18-1179) that can be found [here](https://s3-us-west-2.amazonaws.com/allennlp/models/transformer-elmo-2019.01.10.tar.gz) and stored at `./resources/language_models/transformer-elmo-2019.01.10.tar.gz`
-2. The domain specific ELMo Transformers created from the [repo](https://github.com/apmoore1/language-model) described above. There should be three language models here; 1. Yelp (Restaurant domain), 2. Amazon (Laptop domain), 3. MP/Election, all of these should be saved in the `./resources/language_models/` folder under the following names respectively; `yelp_model.tar.gz`, `amazon_model.tar.gz`, and `election_model.tar.gz`.
+2. The domain specific ELMo Transformers created from the [repo](https://github.com/apmoore1/language-model) described above. There should be three language models here; 1. Yelp (Restaurant domain), 2. Amazon (Laptop domain), 3. MP/Election, all of these should be saved in the `./resources/language_models/` folder under the following names respectively; `restaurant_model.tar.gz`, `laptop_model.tar.gz`, and `election_model.tar.gz`.
 
 A **NOTE** on the domain domain specific ELMo Transformers ensure that within the `tar.gz` file that the `config.json` does not still have the `initializer` field containing a link to the pre-trained weights, if so remove that field else the language model will not work.
 
@@ -162,3 +162,34 @@ To create these expanded training datasets run the following bash script which w
 python tdsa_augmentation/statistics/number_additional_targets.py ./data/augmented_train/laptop_predicted.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
 
 python tdsa_augmentation/statistics/number_target_in_similar.py ./resources/target_words/laptop_predicted.txt ./data/original_laptop_sentiment/train.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
+
+## Baseline Scores
+First we need to convert our domain specific Word2Vec models () into Glove `.txt` format to do so run the following script:
+
+``` bash
+./tdsa_augmentation/analysis/convert_ds_embeddings.sh
+```
+
+This will then create three new embedding files in the Glove `.txt` format that are within `./resource/word_embeddings` directory. For the election, laptop, and restaurant embeddings it converts the following `mp_300`, `amazon_300`, `yelp_300` to respectively `election_glove.txt`, `laptop_glove.txt`, `restaurant_glove.txt`.
+
+The models we are experimenting on throughout are the following:
+1. [IAN](https://www.ijcai.org/proceedings/2017/0568.pdf)
+2. [TDLSTM](https://www.aclweb.org/anthology/C16-1311)
+3. [InterAE](https://www.aclweb.org/anthology/N18-2043)
+
+Of which each model is going to be ran with a different word representations as input:
+1. 300D Glove embeddings
+2. Domain Sepcific (DS) word2vec embeddings
+3. Elmo with 300D Glove embeddings
+4. DS Elmo with 300D Glove embeddings
+5. DS Elmo with DS word2vec embeddings
+
+Each model is trained 5 times with the 5 different word representations stated above across the 3 different datasets using the following script.
+``` bash
+./tdsa_augmentation/analysis/run_baselines.sh $(which python) ./save_data/original/ 5 ./training_configs/
+```
+The test and validation prediction for each of these permutations is stored within the `./save_data/original` folder where the folders are structured as follows:
+
+`model_name/dataset_name/word_representation`
+
+Then within the `word_representation` folder are two json files `pred_test.json` and `pred_val.json`.

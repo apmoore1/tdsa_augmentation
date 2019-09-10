@@ -1,1 +1,0 @@
-python ./tdsa_augmentation/analysis/run_model.py ./data/original_laptop_sentiment/train.json ./data/original_laptop_sentiment/val.json ./data/original_laptop_sentiment/test.json ./training_configs/IAN/laptop_lm_ian.jsonnet 2 ./save_data/original/IAN/laptop_lm_ian.json
