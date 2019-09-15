@@ -19,7 +19,7 @@ def predict_on(model: Model, prediction_data: Dict[str, Any],
                                          predicted on that will have the predicted
                                          label added to
     '''
-    for pred_index, prediction in enumerate(model._predict_iter(prediction_data)):
+    for pred_index, prediction in enumerate(model._predict_iter(prediction_data, batch_size=16)):
         pred_target = prediction_data[pred_index]
         text_id = pred_target['text_id']
         target_object = prediction_target_collection[text_id]

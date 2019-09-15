@@ -1,0 +1,3 @@
+python ./tdsa_augmentation/analysis/word2vec_to_glove_format.py ./resources/word_embeddings/mp_300 ./resources/word_embeddings/election_glove.txt
+python ./tdsa_augmentation/analysis/word2vec_to_glove_format.py ./resources/word_embeddings/amazon_300 ./resources/word_embeddings/laptop_glove.txt
+python ./tdsa_augmentation/analysis/word2vec_to_glove_format.py ./resources/word_embeddings/yelp_300 ./resources/word_embeddings/restaurant_glove.txt

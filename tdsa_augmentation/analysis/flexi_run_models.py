@@ -53,6 +53,10 @@ def add_elmo_embedding(config_params: Params, pre_trained_fp: Path) -> Params:
 
 def model_specific_rep_params(config_params: Params, model_name: str, 
                               word_rep_dim: int) -> Params:
+    if 'target_encoder' in config_params['model']:
+        target_params = config_params['model']['target_encoder']
+        if 'hidden_size' in target_params:
+            target_encoder_out = target_params['hidden_size']
     if model_name == 'ian':
         config_params['model']['context_encoder']['input_size'] = word_rep_dim
         config_params['model']['target_encoder']['input_size'] = word_rep_dim
@@ -64,13 +68,13 @@ def model_specific_rep_params(config_params: Params, model_name: str,
         config_params['model']['right_text_encoder']['input_size'] = word_rep_dim * 2
         config_params['model']['target_encoder']['embedding_dim'] = word_rep_dim
     if model_name == 'atae':
-        config_params['model']['context_encoder']['input_size'] = word_rep_dim * 2
+        config_params['model']['context_encoder']['input_size'] = word_rep_dim + target_encoder_out
         config_params['model']['target_encoder']['embedding_dim'] = word_rep_dim
     if model_name == 'at':
         config_params['model']['context_encoder']['input_size'] = word_rep_dim
         config_params['model']['target_encoder']['embedding_dim'] = word_rep_dim
     if model_name == 'interae':
-        config_params['model']['context_encoder']['input_size'] = word_rep_dim * 2
+        config_params['model']['context_encoder']['input_size'] = word_rep_dim + target_encoder_out
         config_params['model']['target_encoder']['input_size'] = word_rep_dim
     return config_params
 
