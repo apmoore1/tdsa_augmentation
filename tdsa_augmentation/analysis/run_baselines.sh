@@ -8,9 +8,8 @@ declare -a model_arr=("ian" "tdlstm" "interae")
 declare -a domain_arr=("laptop" "election" "restaurant")
 declare -a word_rep_arr=("--word_embedding" 
                          "--word_embedding_ds" 
-                         "--elmo --word_embedding" 
-                         "--elmo_ds --word_embedding" 
-                         "--elmo_ds --word_embedding_ds")
+                         "--elmo --word_embedding --elmo_contextualised" 
+                         "--elmo_ds --word_embedding --elmo_contextualised")
 
 for domain in "${domain_arr[@]}"
 do

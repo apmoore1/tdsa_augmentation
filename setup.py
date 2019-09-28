@@ -15,11 +15,11 @@ setup(name='tdsa_augmentation',
       author_email='andrew.p.moore94@gmail.com',
       license='Apache License 2.0',
       install_requires=[
-          'allennlp>=0.8.3',
           'gensim'
       ],
       python_requires='>=3.6.1',
       packages=find_packages(),
+      dependency_links = ['http://github.com/apmoore1/target-extraction@master#egg=target-extraction'],
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Programming Language :: Python :: 3.6'

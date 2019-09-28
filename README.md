@@ -186,7 +186,7 @@ Of which each model is going to be ran with a different word representations as 
 
 Each model is trained 5 times with the 5 different word representations stated above across the 3 different datasets using the following script.
 ``` bash
-./tdsa_augmentation/analysis/run_baselines.sh $(which python) ./save_data/original/ 5 ./training_configs/
+./tdsa_augmentation/analysis/run_baselines.sh $(which python) ./save_data/original/ 8 ./training_configs/
 ```
 The test and validation prediction for each of these permutations is stored within the `./save_data/original` folder where the folders are structured as follows:
 

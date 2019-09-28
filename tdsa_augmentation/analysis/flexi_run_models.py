@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 
 from allennlp.common.params import Params
+from target_extraction.data_types import TargetTextCollection
 
 from tdsa_augmentation.analysis.run_model import run_model
 
@@ -79,7 +80,8 @@ def model_specific_rep_params(config_params: Params, model_name: str,
     return config_params
 
 def encoder_name(is_elmo: bool, is_elmo_ds: bool, is_word_embedding: bool, 
-                 is_word_embedding_ds: bool) -> str:
+                 is_word_embedding_ds: bool, 
+                 is_elmo_contextualised: bool = False) -> str:
     name = ''
     if is_elmo:
         name = 'Elmo'
@@ -95,6 +97,8 @@ def encoder_name(is_elmo: bool, is_elmo_ds: bool, is_word_embedding: bool,
             name = f'{name}_DS_WE'
         else:
             name = 'DS_WE'
+    if is_elmo_contextualised:
+        name = f'C_{name}'
     return name
 
 if __name__=='__main__':
@@ -114,6 +118,7 @@ if __name__=='__main__':
                         help='Top level directory to save all of the test and validation data')
     parser.add_argument("--elmo", action='store_true')
     parser.add_argument("--elmo_ds", action='store_true')
+    parser.add_argument("--elmo_contextualised", action='store_true')
     parser.add_argument("--word_embedding", action='store_true')
     parser.add_argument("--word_embedding_ds", action='store_true')
     args = parser.parse_args()
@@ -162,23 +167,42 @@ if __name__=='__main__':
     # Need to change model specific parameters based on the word representation
     # dimensions
     model_specific_rep_params(config_params, args.model_name, word_rep_dim)
+    split_context_models = ['tdlstm', 'tclstm']
+    if args.elmo_contextualised and args.model_name not in split_context_models:
+        config_params['model']['use_target_sequences'] = True
+        config_params['dataset_reader']['target_sequences'] = True
     # save directory
     encoder = encoder_name(args.elmo, args.elmo_ds, args.word_embedding, 
-                           args.word_embedding_ds)
+                           args.word_embedding_ds, args.elmo_contextualised)
     print(encoder)
+    if 'use_target_sequences' in config_params['model']:
+        print(config_params['model']['use_target_sequences'])
     save_dir = Path(args.save_dir, args.model_name, args.domain, encoder).resolve() 
     save_dir.mkdir(parents=True, exist_ok=True)
     test_save_fp = Path(save_dir, 'pred_test.json')
     val_save_fp = Path(save_dir, 'pred_val.json')
+
+    dataset_dir = args.dataset_dir
+    train_fp = Path(dataset_dir, 'train.json')
     if test_save_fp.exists() and val_save_fp.exists():
-        print(f'Predictions have already been made at the following directory {save_dir}') 
+        save_test_data = TargetTextCollection.load_json(test_save_fp)
+        test_value = next(iter(save_test_data.values()))
+        num_predictions = len(test_value['predicted_target_sentiments'])
+        if num_predictions >= args.N:
+            print(f'Predictions have already been made at the following directory {save_dir}')
+        else:
+            predictions_left = args.N - num_predictions
+            print(f'Number of predictions left {predictions_left}')
+            with tempfile.NamedTemporaryFile(mode='w+') as temp_file:
+                config_params.to_file(temp_file.name)
+                run_model(train_fp, val_save_fp, test_save_fp, 
+                          Path(temp_file.name), test_save_fp, 
+                          predictions_left, None, val_save_fp)
+
     else:
-        dataset_dir = args.dataset_dir
-        train_fp = Path(dataset_dir, 'train.json')
         val_fp = Path(dataset_dir, 'val.json')
         test_fp = Path(dataset_dir, 'test.json')
         with tempfile.NamedTemporaryFile(mode='w+') as temp_file:
             config_params.to_file(temp_file.name)
-
             run_model(train_fp, val_fp, test_fp, Path(temp_file.name), test_save_fp, 
                       args.N, None, val_save_fp)
