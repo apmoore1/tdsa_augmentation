@@ -2,18 +2,21 @@
 
 
 ## Word Vectors and Languages models
-This repository assumes that you have followed the steps within the following Github repository to create domain specific pre-trained ELMo Transformer language models and pre-trained domain specific word embeddings: [repo](https://github.com/apmoore1/language-model). 
+This repository assumes that you have followed the steps within the following Github repository to create Domain Specific (DS) pre-trained ELMo Transformer language models and pre-trained DS word embeddings: [repo](https://github.com/apmoore1/language-model). 
 
 ### Word Vectors
-The Word vectors created from this repository should be stored in the following folder: `./resources/word_embeddings` along with the Glove 840 billion token 300 dimension word vector that can be downloaded from [here](https://nlp.stanford.edu/projects/glove/).
+The Word vectors created from this repository should be stored in the following folder: `./resources/word_embeddings` along with the Glove 840 billion token 300 dimension word vector (Glove 840) and the 200 dimension Twitter Glove vector (Glove Twitter), both can be downloaded from [here](https://nlp.stanford.edu/projects/glove/).
 
 ### Language Models
 The following language models should be stored in this folder: `./resources/language_models`
 
 1. The non-domain specific ELMo Transformer from the following [paper](https://www.aclweb.org/anthology/D18-1179) that can be found [here](https://s3-us-west-2.amazonaws.com/allennlp/models/transformer-elmo-2019.01.10.tar.gz) and stored at `./resources/language_models/transformer-elmo-2019.01.10.tar.gz`
-2. The domain specific ELMo Transformers created from the [repo](https://github.com/apmoore1/language-model) described above. There should be three language models here; 1. Yelp (Restaurant domain), 2. Amazon (Laptop domain), 3. MP/Election, all of these should be saved in the `./resources/language_models/` folder under the following names respectively; `restaurant_model.tar.gz`, `laptop_model.tar.gz`, and `election_model.tar.gz`.
+2. The domain specific ELMo Transformers created from the [repo](https://github.com/apmoore1/language-model) described above. There should be three language models and each saved within `./resources/language_models/` under;
+    * `restaurant_model.tar.gz` for Yelp (Restaurant domain). 
+    * `laptop_model.tar.gz` Amazon (Laptop domain).
+    * `election_model.tar.gz` MP/Election.
 
-A **NOTE** on the domain domain specific ELMo Transformers ensure that within the `tar.gz` file that the `config.json` does not still have the `initializer` field containing a link to the pre-trained weights, if so remove that field else the language model will not work.
+A **NOTE** on the domain specific ELMo Transformers ensure that within the `tar.gz` file that the `config.json` does not still have the `initializer` field containing a link to the pre-trained weights, if so remove that field else the language model will not work.
 
 ## TDSA datasets and creating training, validation, and test datasets.
 The datasets we are going to look at are the following of which follow the relevant instructions on downloading and where to download them too: 
@@ -27,25 +30,61 @@ To create the training, validation and testing datasets for the Sentiment predic
 The validation and test sets are roughly equal in size.
 
 ## Augmenting the datasets through existing targets
-In this approach we are only going to use the targets that have occurred in the training dataset to augment the current training datasets. First we need to extract out all of the targets in the training datasets and store each of them in `./resources/target_words` as `restaurant_train.txt`, `laptop_train.txt`, and `election_train.txt`:
+### Extract Targets
+In this approach we are only going to use the targets that have occurred in the training dataset to augment the current training datasets. First we need to extract out all of the targets in the training datasets and store each of them in `./resources/target_words` as: 
+* `restaurant_train.txt` 
+* `laptop_train.txt`
+* `election_train.txt`:
 ``` bash
 ./tdsa_augmentation/data_creation/extract_targets_from_train_json.sh 
 ```
-
-The starting point of our data augmentation first starts by finding candidate targets for each target where the candidates are semantically equivalent targets for each target. To do this we are going to use our domain specific word embeddings to find those equivalent targets. To do so we first want to know how many of the targets (lower cased) are in our domain specific embeddings:
+### Target Embedding/Vectors statistics 
+#### DS Word Embedding statistics
+The starting point of our data augmentation first starts by finding candidate targets for each target where the candidates are semantically equivalent targets for each target. To do this we are going to use our DS word embeddings to find those equivalent targets. To do so we first want to know how many of the targets (lower cased) are in our DS embeddings:
 ``` bash
-./tdsa_augmentation/statistics/target_in_embedding_stats.sh
+./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 DS
 ```
-| Dataset    | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3     |
-|------------|-----------------------------|-------------|------------|----------|
-| Laptop     | 739 (373)                   | 280 (275)   | 296 (98)   | 163 (0)  |
-| Restaurant | 914 (434)                   | 379 (368)   | 326 (66)   | 209 (0)  |
-| Election   | 1496 (915)                  | 936 (746)   | 429 (166)  | 131 (3)  |
+The argument 1.0 determines the fraction of the number of words that have to be in a multi word target for the target to be represented by the embedding through averaging the words vectors within the target. The `DS` argument states that we want to run this for the DS word embeddings.
 
-Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens".
+| Dataset    | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3+     |
+|------------|-----------------------------|-------------|------------|-----------|
+| Laptop     | 739 (730)                   | 280 (275)   | 296 (292)  | 163 (163) |
+| Restaurant | 914 (888)                   | 379 (368)   | 326 (314)  | 209 (206) |
+| Election   | 1496 (1221)                 | 936 (746)   | 429 (362)  | 131 (113) |
 
-As we can see the embedding has a high coverage of targets that are not Multi Word Expressions (MWE), but do capture some MWEs and overall cover a minimum of 47% of the target words in all of the datasets.
+Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens". However TL 3+ contains targets that contain at least 3 tokens thus it can contain targets that have 10 tokens.
 
+Across all of the dataset we have a very high target coverage 98.78%, 97.16%, and 81.62% for the Laptop, Restaurant, and Election datasets respectively. The Election dataset has the worse coverage which is not un-expected as it comes from Twitter which will have a high lexical diversity. The Multi-Word (MW) targets have a high coverage due to the embedding containing a lot of the indvidual words within the target and thus can represent the target as an average of it's words embeddings. However the number MW targets that the embedding contains without having to average the words is actually very low.
+#### Glove Embedding statistics
+For comparison we are also going to explore how many words the general Glove Vectors contain for these datasets. First for computational and practical reasons we are going to shrink the Glove Vectors so that they only contain words that are in the targets for each of the three datasets, and then store these words and there vectors in Word2Vec format.
+``` bash
+./tdsa_augmentation/data_creation/shrink_glove_to_word2vec.sh
+```
+Once this has ran the shrunk Glove Vectors can be found in the following directory `./resources/word_embeddings/shrunk_target_vectors/`, where we have a Word2Vec for each dataset and 2 for the Election dataset as we have shrunk both Glove 300 and Glove Twitter where as for the others only the Glove 300 has been shrunk. 
+
+Now we can find the number of targets within the general Glove embeddings:
+``` bash
+./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 GLOVE
+```
+
+| Dataset                     | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3+     |
+|-----------------------------|-----------------------------|-------------|------------|-----------|
+| Laptop                      | 739 (736)                   | 280 (278)   | 296 (295)  | 163 (163) |
+| Restaurant                  | 914 (882)                   | 379 (364)   | 326 (314)  | 209 (204) |
+| Election                    | 1496 (1064)                 | 936 (636)   | 429 (324)  | 131 (104) |
+| Election (Twitter Vectors)  | 1496 (1090)                 | 936 (651)   | 429 (331)  | 131 (108) |
+
+Coverage difference:
+
+| Dataset    | DS Coverage | Glove Coverage | DS - Glove |
+| -----------|-------------|----------------|------------|
+| Laptop     | 98.78%      | 99.59%         | -0.81%     |
+| Restaurant | 97.16%      | 96.5%          | 0.66%      |
+| Election   | 81.62%      | 72.86%         | 8.76%      |
+
+We can see the Glove vectors and DS are very similar in coverage for the review datasets but for the Twitter the DS have a much higher coverage. Having a high coverage is useful to know as this would suggest that the embedding will have other target words within it's vocabulary but having a high coverage does not mean that the embedding representation will be useful for finding other targets.
+
+### Finding semantically similar targets through word embeddings.
 We thus want to use these embeddings to find targets that are semantically similar, therefore for each target find the top *N* most similar target words. In our case we use *N=15* (15 is just an arbitrary number we have chosen and will be better tuned in the later process when using the language models):
 ``` bash
 ./tdsa_augmentation/data_augmentation/train_targets_embedding_expander.sh
@@ -123,7 +162,7 @@ All of the statistics below are number of unique lower cased targets from their 
 
 As we can the majority of the predicted targets have never been seen before in the training set, further more there are some targets (T\P) that have only ever been seen in the training, which is great as this means the training targets are still useful and high quality.
 
-Next we are going to c
+Next we are going to call
 ``` bash
 ./tdsa_augmentation/statistics/predicted_target_in_embedding_stats.sh
 ```
@@ -193,3 +232,30 @@ The test and validation prediction for each of these permutations is stored with
 `model_name/dataset_name/word_representation`
 
 Then within the `word_representation` folder are two json files `pred_test.json` and `pred_val.json`.
+
+## Cross domain performance
+Each of the models in the baselines can be trained on one dataset but then applied to the other datasets to test the cross domain performance of these models.
+
+
+
+
+with N = 15
+Number of training samples 1661
+Number of training samples that had targets that can be expanded 1040
+Number of samples that can be expanded 537
+Counter({0: 503, 1: 190, 2: 114, 3: 71, 4: 51, 5: 40, 6: 18, 7: 12, 10: 10, 8: 10, 9: 6, 12: 4, 15: 4, 14: 3, 13: 2, 11: 2})
+Total more training samples from augmentation 1659
+
+
+Number of training samples 1661
+Number of training samples that had targets that can be expanded 1040
+Number of samples that can be expanded 664
+Counter({0: 376, 1: 222, 2: 109, 3: 80, 4: 55, 5: 43, 7: 27, 6: 27, 8: 25, 9: 14, 11: 8, 13: 7, 10: 7, 20: 5, 14: 4, 18: 4, 17: 4, 12: 4, 19: 3, 16: 3, 23: 2, 27: 2, 15: 2, 30: 2, 25: 2, 24: 1, 26: 1, 21: 1})
+Total more training samples from augmentation 2801
+
+
+Number of training samples 1661
+Number of training samples that had targets that can be expanded 1040
+Number of samples that can be expanded 641
+Counter({0: 399, 1: 216, 2: 100, 3: 79, 4: 55, 5: 41, 6: 27, 7: 26, 8: 24, 9: 13, 11: 9, 10: 7, 20: 5, 14: 4, 13: 4, 18: 4, 17: 4, 12: 4, 19: 3, 16: 3, 23: 2, 27: 2, 15: 2, 30: 2, 25: 2, 22: 1, 26: 1, 21: 1})
+Total more training samples from augmentation 2710
