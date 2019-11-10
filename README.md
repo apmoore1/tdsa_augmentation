@@ -40,7 +40,7 @@ In this approach we are only going to use the targets that have occurred in the 
 ```
 ### Target Embedding/Vectors statistics 
 #### DS Word Embedding statistics
-The starting point of our data augmentation first starts by finding candidate targets for each target where the candidates are semantically equivalent targets for each target. To do this we are going to use our DS word embeddings to find those equivalent targets. To do so we first want to know how many of the targets (lower cased) are in our DS embeddings:
+The starting point of our data augmentation first starts by finding candidate targets for each target where the candidates are semantically equivalent targets for each target. To do this we are going to use our DS word embeddings to find those equivalent targets. To do so we first want to know how many of the targets (lower cased) can be represented by our DS embeddings:
 ``` bash
 ./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 DS
 ```
@@ -52,11 +52,18 @@ The argument 1.0 determines the fraction of the number of words that have to be 
 | Restaurant | 914 (888)                   | 379 (368)   | 326 (314)  | 209 (206) |
 | Election   | 1496 (1221)                 | 936 (746)   | 429 (362)  | 131 (113) |
 
-Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens". However TL 3+ contains targets that contain at least 3 tokens thus it can contain targets that have 10 tokens.
+Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens". However TL 3+ contains targets that contain at least 3 tokens thus it can contain targets that have 10 tokens. 
 
-Across all of the dataset we have a very high target coverage 98.78%, 97.16%, and 81.62% for the Laptop, Restaurant, and Election datasets respectively. The Election dataset has the worse coverage which is not un-expected as it comes from Twitter which will have a high lexical diversity. The Multi-Word (MW) targets have a high coverage due to the embedding containing a lot of the indvidual words within the target and thus can represent the target as an average of it's words embeddings. However the number MW targets that the embedding contains without having to average the words is actually very low.
+Across all of the dataset we have a very high TC 98.78%, 97.16%, and 81.62% for the Laptop, Restaurant, and Election datasets respectively. The Election dataset has the worse coverage which is not un-expected as it comes from Twitter which will have a high lexical diversity. The Multi-Word (MW) targets have a high coverage due to the embedding containing a lot of the individual words within the target and thus can represent the target as an average of it's words embeddings. However the number MW targets that the embedding contains without having to average the words is actually very low as shown in the table below:
+
+| Dataset    | TL 2       | TL 3+     |
+|------------|------------|-----------|
+| Laptop     | 296 (98)   | 163 (0)   |
+| Restaurant | 326 (66)   | 209 (0)   |
+| Election   | 429 (166)  | 131 (3)   |
+
 #### Glove Embedding statistics
-For comparison we are also going to explore how many words the general Glove Vectors contain for these datasets. First for computational and practical reasons we are going to shrink the Glove Vectors so that they only contain words that are in the targets for each of the three datasets, and then store these words and there vectors in Word2Vec format.
+For comparison we are also going to explore how many words the general Glove Vectors can represent for these datasets. First for computational and practical reasons we are going to shrink the Glove Vectors so that they only contain words that are in the targets for each of the three datasets, and then store these words and there vectors in Word2Vec format.
 ``` bash
 ./tdsa_augmentation/data_creation/shrink_glove_to_word2vec.sh
 ```
@@ -82,10 +89,10 @@ Coverage difference:
 | Restaurant | 97.16%      | 96.5%          | 0.66%      |
 | Election   | 81.62%      | 72.86%         | 8.76%      |
 
-We can see the Glove vectors and DS are very similar in coverage for the review datasets but for the Twitter the DS have a much higher coverage. Having a high coverage is useful to know as this would suggest that the embedding will have other target words within it's vocabulary but having a high coverage does not mean that the embedding representation will be useful for finding other targets.
+We can see the Glove vectors and DS are very similar in TC for the review datasets but for the Twitter the DS has a much higher coverage. Having a high coverage will mean that more samples will be able to be augmented and more likely to be able to find more semantically equivalent targets to augment with. Unlike the DS embedding the Glove embeddings do not contain MW targets without averaging.
 
 ### Finding semantically similar targets through word embeddings.
-We thus want to use these embeddings to find targets that are semantically similar, therefore for each target find the top *N* most similar target words. In our case we use *N=15* (15 is just an arbitrary number we have chosen and will be better tuned in the later process when using the language models):
+We thus want to use these embeddings to find targets that are semantically similar, therefore for each target within the TC find the top *N* most similar target words within the TC. In our case we use *N=15* (15 is just an arbitrary number we have chosen and will be better tuned in the later process when using the language models):
 ``` bash
 ./tdsa_augmentation/data_augmentation/train_targets_embedding_expander.sh
 ```

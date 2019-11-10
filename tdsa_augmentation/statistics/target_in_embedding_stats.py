@@ -6,7 +6,7 @@ from typing import Dict, List
 #from gensim.models.word2vec import Word2Vec
 from gensim.models import KeyedVectors
 
-from tdsa_augmentation.helpers.general_helper import multi_word_targets
+from tdsa_augmentation.helpers.general_helper import multi_word_targets, extract_multi_word_targets
 
 def parse_path(path_string: str) -> Path:
     path_string = Path(path_string).resolve()
@@ -51,41 +51,10 @@ def cumulate_length_count(length_count: Dict[int, int], max_length: int
             temp_length_count[f'{length}'] += count
     return dict(temp_length_count)
 
-def fraction_words_in_target(multi_word_targets: List[str], 
-                             embedding: KeyedVectors,
-                             fraction: float, 
-                             string_delimiter: str = '_') -> List[str]:
-    '''
-    :param multi_word_targets: A list of targets that are multi word targets.
-    :param embedding: The embedding you want statistics on
-    :param fraction: The fraction of target words within one target that is 
-                     also in the embedding to declare the embedding can be 
-                     used for this multi word target
-    :param string_delimiter: The string to be used to split the target up into 
-                             multiple words
-    :returns: The list of targets that are multi word targets, that contain 
-              enough words within each target that are within the embedding 
-              to state that the embedding contains enough information 
-              to represent these multi word targets. The `fraction` argument 
-              states what are enough words in the embedding that are also 
-              in the multi word target for it to be in this returned list.
-    '''
-    filtered_mwe_targets = set()
-    for mwe_target in multi_word_targets:
-        words = mwe_target.split(string_delimiter) 
-        words_in_embedding = [word for word in words if word in embedding.wv]
-        if len(words) <= 1:
-            raise ValueError('Number of words in MWE target has to be greater '
-                             f'than 1. MWE Target {mwe_target}')
-        frac_words = len(words_in_embedding) / len(words)
-        if frac_words >= fraction:
-            filtered_mwe_targets.add(mwe_target)
-    return list(filtered_mwe_targets)
-
 if __name__ == '__main__':
-    fraction_help = "The fraction fo words within a target that the embedding "\
+    fraction_help = "The fraction of words within a target that the embedding "\
                     "must have to state that the embedding can represent "\
-                    "this word"
+                    "this target"
     parser = argparse.ArgumentParser()
     parser.add_argument("target_list_data_fp", type=parse_path, 
                         help='File path to the list of targets')
@@ -114,11 +83,13 @@ if __name__ == '__main__':
                                if target in embedding.wv]
     # Targets that multi word word targets but not in the embeddings as a 
     # multi word target
-    multi_target_not_in_embedding = [target for target in multi_targets if '_' in target]
-    multi_target_not_in_embedding = [target for target in multi_target_not_in_embedding 
-                                     if target not in embedding.wv]
-    multi_target_embedding_can_rep = fraction_words_in_target(multi_target_not_in_embedding, 
-                                                              embedding, fraction)
+    extract_multi_word_targets_args = {'targets': targets, 'fraction': fraction,
+                                       'embedding': embedding, 'mw_targets_ignore': None,
+                                       'string_delimiter': '_', 
+                                       'remove_single_word_targets': True,
+                                       'remove_existing_mw_targets_in_embedding': True,
+                                       'raise_value_error_on_single_target': True}
+    multi_target_embedding_can_rep = extract_multi_word_targets(**extract_multi_word_targets_args)
     # Statistics
     # Calculate the length of targets as normal
     normal_target_length_count = target_length_count(multi_targets)
