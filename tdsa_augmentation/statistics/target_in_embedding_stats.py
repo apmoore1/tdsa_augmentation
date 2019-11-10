@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # Targets that are in the embedding
     embedding_multi_targets = [target for target in multi_targets 
                                if target in embedding.wv]
-    # Targets that multi word word targets but not in the embeddings as a 
+    # Targets that are multi word word targets but not in the embeddings as a 
     # multi word target
     extract_multi_word_targets_args = {'targets': targets, 'fraction': fraction,
                                        'embedding': embedding, 'mw_targets_ignore': None,
