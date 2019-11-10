@@ -2,21 +2,21 @@
 
 
 ## Word Vectors and Languages models
-This repository assumes that you have followed the steps within the following Github repository to create Domain Specific (DS) pre-trained ELMo Transformer language models and pre-trained DS word embeddings: [repo](https://github.com/apmoore1/language-model). 
+This repository assumes that you have followed the steps within the following Github repository to create Domain Specific (DS) pre-trained ELMo Transformer Language Models (LM) and pre-trained DS word embeddings: [repo](https://github.com/apmoore1/language-model). 
 
 ### Word Vectors
 The Word vectors created from this repository should be stored in the following folder: `./resources/word_embeddings` along with the Glove 840 billion token 300 dimension word vector (Glove 840) and the 200 dimension Twitter Glove vector (Glove Twitter), both can be downloaded from [here](https://nlp.stanford.edu/projects/glove/).
 
-### Language Models
-The following language models should be stored in this folder: `./resources/language_models`
+### Language Models (LM)
+The following LMs should be stored in this folder: `./resources/language_models`
 
 1. The non-domain specific ELMo Transformer from the following [paper](https://www.aclweb.org/anthology/D18-1179) that can be found [here](https://s3-us-west-2.amazonaws.com/allennlp/models/transformer-elmo-2019.01.10.tar.gz) and stored at `./resources/language_models/transformer-elmo-2019.01.10.tar.gz`
-2. The domain specific ELMo Transformers created from the [repo](https://github.com/apmoore1/language-model) described above. There should be three language models and each saved within `./resources/language_models/` under;
+2. The domain specific ELMo Transformers created from the [repo](https://github.com/apmoore1/language-model) described above. There should be three LMs and each saved within `./resources/language_models/` under;
     * `restaurant_model.tar.gz` for Yelp (Restaurant domain). 
     * `laptop_model.tar.gz` Amazon (Laptop domain).
     * `election_model.tar.gz` MP/Election.
 
-A **NOTE** on the domain specific ELMo Transformers ensure that within the `tar.gz` file that the `config.json` does not still have the `initializer` field containing a link to the pre-trained weights, if so remove that field else the language model will not work.
+A **NOTE** on the domain specific ELMo Transformers ensure that within the `tar.gz` file that the `config.json` does not still have the `initializer` field containing a link to the pre-trained weights, if so remove that field else the LM will not work.
 
 ## TDSA datasets and creating training, validation, and test datasets.
 The datasets we are going to look at are the following of which follow the relevant instructions on downloading and where to download them too: 
@@ -92,21 +92,31 @@ Coverage difference:
 We can see the Glove vectors and DS are very similar in TC for the review datasets but for the Twitter the DS has a much higher coverage. Having a high coverage will mean that more samples will be able to be augmented and more likely to be able to find more semantically equivalent targets to augment with. Unlike the DS embedding the Glove embeddings do not contain MW targets without averaging.
 
 ### Finding semantically similar targets through word embeddings.
-We thus want to use these embeddings to find targets that are semantically similar, therefore for each target within the TC find the top *N* most similar target words within the TC. In our case we use *N=15* (15 is just an arbitrary number we have chosen and will be better tuned in the later process when using the language models):
+#### Using only the original data
+##### Finding similar targets through the DS word embedding
+We thus want to use these embeddings to find targets that are semantically similar, therefore for each target within the TC find the top *N* most similar target words within the TC. In our case we use *N=15* (15 is just an arbitrary number but the higher this number is the more targets that the LM will have to consider in the next step, which is the more computationally expensive step. Therefore the lower *N* is the quicker the augmentation.):
 ``` bash
 ./tdsa_augmentation/data_augmentation/train_targets_embedding_expander.sh
 ```
-All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_train_expanded.json`, 2. `restaurant_train_expanded.json`, 3. `election_train_expanded.json`
+All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files: 
+* `laptop_train_expanded.json`
+* `restaurant_train_expanded.json`
+* `election_train_expanded.json`
 
-Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the language models perplexity score for that sentence is less than (less in perplexity is better) the perplexity score of the original sentence then the target will be added to that training instance. **NOTE** As we are using the language models per training instance, each target can have a different semantic equivalent target lists per training instance as the language model will have a different score for each target based on how well it fits into the sentence.
+##### Narrowing the similar targets through a LM
+Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the LMs perplexity score for that sentence is less than (less in perplexity is better) the perplexity score of the original sentence then the target will be added to that training instance. **NOTE** as we are using the LMs per training instance, each target can have a different semantic equivalent target lists per training instance as the LM will have a different score for each target based on how well it fits into the sentence.
 
-*The reason why we filter the targets using the Word Vectors and then use the language models to fine tune the semantic equivalent targets is due to the time it would take to run the language models for each target against each target for each training instance. This is very similar to a combination of the following two papers [1](https://www.aclweb.org/anthology/D15-1306/), [2](https://www.aclweb.org/anthology/P19-1328/) the former performs data augmentation based on top N similar words from a word embedding and the latter shows that using a BERT model's similarity between the original and the word substitution sentences are useful for evaluating lexical substitution.* 
+The LMs we will use are the DS LMs, not the non-DS LM. This form of data augmentation is similar to combining the following two papers [1](https://www.aclweb.org/anthology/D15-1306/), [2](https://www.aclweb.org/anthology/P19-1328/) the former performs data augmentation based on top N similar words from a word embedding and the latter shows that using a BERT model's similarity between the original and the word substitution sentences are useful for evaluating lexical substitution.* 
 
 Thus we are now going to create the fully expanded training dataset for each of the domains/datasets. This dataset will be exactly the same as the original training datasets that are currently json files, however there will be extra fields denoted by the index of the target where it will contain a list of semantically equivalent targets for that target at that index. An example of one sentence that contains multiple targets and it's equivalent targets is shown below: 
 ``` json
 {"text": "It appears that many lefties are unable to tell the difference between tax evasion and tax avoidance #bbcqt", "text_id": "68544488139964416", "targets": ["tax avoidance", "tax evasion"], "spans": [[87, 100], [71, 82]], "target_sentiments": ["neutral", "neutral"], "target 0": ["tax avoidance", "tax evasion"], "target 1": ["tax evasion", "libor", "tax avoidance"]}
 ```
-To create these expanded training datasets run the following bash script which will produce expanded datasets for the laptop, restaurant and election domain at the following paths respectively `./data/augmented_train/laptop.json`, `./data/augmented_train/restaurant.json`, `./data/augmented_train/election.json`
+To create these expanded training datasets run the following bash script which will produce expanded datasets for the laptop, restaurant and election domain at the following paths respectively: 
+* `./data/augmented_train/laptop.json`
+* `./data/augmented_train/restaurant.json`
+* `./data/augmented_train/election.json`
+
 ``` bash
 ./tdsa_augmentation/data_augmentation/augmented_lm_train_dataset.sh
 ```

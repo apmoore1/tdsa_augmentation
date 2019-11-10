@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from gensim.models import KeyedVectors
+import numpy as np
 from target_extraction.tokenizers import spacy_tokenizer
 
 def multi_word_targets(targets: List[str], lower: bool = True,
@@ -110,3 +111,40 @@ def extract_multi_word_targets(targets: List[str],
             filtered_mw_targets.add(mw_target)
     return list(filtered_mw_targets)
 
+def get_embedding(embedding: KeyedVectors, targets: List[str], 
+                  average: bool = False, string_delimiter: str = '_'
+                  ) -> Dict[str, np.ndarray]:
+    '''
+    :param embedding: The embedding to retrieve the embedding for each target 
+                      from.
+    :param targets: The targets to get the embeddings for.
+    :param average: Wether or not to get the average of the targets words
+    :param string_delimiter: The string to state when a token is a token in 
+                             a multi word target. This is only used when 
+                             `average` is True.
+    :returns: A dictionary of targets and their associated embedding.
+    '''
+    target_embedding: Dict[str, np.ndarray] = {}
+    for target in targets:
+        if average:
+            words = target.split(string_delimiter)
+            word_vectors = []
+            for word in words:
+                if word not in embedding.wv:
+                    continue
+                word_vectors.append(embedding.wv[word])
+            if len(word_vectors) == 1:
+                target_embedding[target] = word_vectors[0]
+            elif len(word_vectors) <= 0:
+                raise ValueError(f'The number of words in this target {target}'
+                                 ' that are within the embedding is 0')
+            else:
+                word_vectors = np.array(word_vectors)
+                embedding_dim = word_vectors.shape[1]
+                average_vector = word_vectors.mean(axis=0)
+                assert average_vector.shape[0] == embedding_dim
+                target_embedding[target] = average_vector
+        else:
+            target_embedding[target] = embedding.wv[target]
+    assert len(targets) == len(target_embedding)
+    return target_embedding
