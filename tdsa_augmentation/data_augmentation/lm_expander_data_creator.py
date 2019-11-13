@@ -1,24 +1,8 @@
 import argparse
 import copy
 import json
-from pathlib import Path
-from typing import Dict, List
-
-from target_extraction.data_types import TargetText
-from target_extraction.tokenizers import spacy_tokenizer
-from target_extraction.data_types_util import OverLappingTargetsError
-
-
-
-
-
-
-
-
-
-
-
 import math
+from pathlib import Path
 from typing import Dict, List, Tuple, Iterable, Any, Callable, Set, Union
 
 from allennlp.data.dataset_readers import SimpleLanguageModelingDatasetReader, DatasetReader
@@ -26,6 +10,12 @@ from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
 from allennlp.models import load_archive, Model, BidirectionalLanguageModel
 from allennlp.modules.sampled_softmax_loss import SampledSoftmaxLoss
 from allennlp.nn.util import get_text_field_mask
+from allennlp.data.dataset import Batch
+from allennlp.nn import util
+import numpy as np
+from target_extraction.data_types import TargetText
+from target_extraction.tokenizers import spacy_tokenizer
+from target_extraction.data_types_util import OverLappingTargetsError
 import torch
 
 # This is form from allennlp.models import BidirectionalLanguageModel
@@ -161,7 +151,7 @@ def _forward_eval(self, embeddings: torch.Tensor, targets: torch.Tensor) -> torc
         targets_ = targets
     batch_loss = getattr(self, 'batch_loss', None)
     if batch_loss:
-        return torch.nn.functional.nll_loss(log_softmax, targets_.long(), reduce=False)
+        return torch.nn.functional.nll_loss(log_softmax, targets_.long(), reduction='none')
     else:
         return torch.nn.functional.nll_loss(log_softmax, targets_.long(), reduction="sum")
 
@@ -241,25 +231,9 @@ def sentence_perplexitys(model: Model,
     sentence_instances = []
     for sentence in sentences:
         sentence_instances.append(dataset_reader.text_to_instance(sentence))
-    try:
-        results = model.forward_on_instances(sentence_instances)
-        result_perplexitys = [math.exp(result['loss']) for result in results]
-    except:
-        import pdb
-        pdb.set_trace()
+    results = model.forward_on_instances(sentence_instances)
+    result_perplexitys = [math.exp(result['loss']) for result in results]
     return result_perplexitys
-
-
-
-
-
-
-
-
-
-
-
-
 
 def parse_path(path_string: str) -> Path:
     path_string = Path(path_string).resolve()
@@ -269,6 +243,8 @@ if __name__=='__main__':
     save_fp_help = 'File Path to save the expanded training dataset'
     maximum_perplexity_help = 'Maximum perplexity a sentence can have before'\
                               ' the target is denoted as not semantically equivalent'
+    batch_size_help = "Batch size. The higher this is the more GPU memory "\
+                      "required. Default 15."
     parser = argparse.ArgumentParser()
     parser.add_argument("expanded_targets_fp", type=parse_path, 
                         help='File path to the expanded targets json file')
@@ -279,7 +255,14 @@ if __name__=='__main__':
     parser.add_argument("save_fp", type=parse_path, help=save_fp_help)
     parser.add_argument("--cuda", action="store_true", 
                         help="Whether to load the language model on to a GPU")
+    parser.add_argument("--batch_size", type=int, 
+                        help=batch_size_help)
     args = parser.parse_args()
+
+    batch_size = args.batch_size
+    if batch_size is None:
+        batch_size = 15
+    print(batch_size)
 
     # Loading the language model
     BidirectionalLanguageModel._loss_helper = _loss_helper
@@ -297,8 +280,8 @@ if __name__=='__main__':
     transformer_model._softmax_loss.batch_loss = True
     # Load the dataset reader that came with the transformer model and ensure 
     # that the max sequence length is set to infinte so that we can analysis 
-    # any length sentence (problem can occur with Memory (GPU espically)) 
-    # if a sentence is really long.
+    # any length sentence (problem can occur with Memory (GPU espically))
+    # if a sentence is really long).
     config = archive.config
     dict_config = config.as_dict(quiet=True)
     dataset_reader_config = config.get("dataset_reader")
@@ -306,8 +289,8 @@ if __name__=='__main__':
         dataset_reader_config = dataset_reader_config.get("base_reader")
         if 'max_sequence_length' in dataset_reader_config:
             dataset_reader_config['max_sequence_length'] = None
-    another_reader = DatasetReader.from_params(dataset_reader_config)
-    another_reader.lazy = False
+    dataset_reader = DatasetReader.from_params(dataset_reader_config)
+    dataset_reader.lazy = False
 
     with args.expanded_targets_fp.open('r') as expanded_targets_file:
         targets_equivalents: Dict[str, str] = json.load(expanded_targets_file)
@@ -332,7 +315,8 @@ if __name__=='__main__':
                 # Get the perplexity score that replacement targets have to beat 
                 # which is defined by the perplexity score of the original sentence 
                 original_sentence = ' '.join(tokenizer(train_sample['text']))
-                max_perplexity = sentence_perplexitys(transformer_model, another_reader, [original_sentence])
+                max_perplexity = sentence_perplexitys(transformer_model, dataset_reader, 
+                                                      [original_sentence])
                 assert len(max_perplexity) == 1
                 max_perplexity = max_perplexity[0] 
 
@@ -340,20 +324,63 @@ if __name__=='__main__':
                 for index, target in enumerate(targets):
                     if target in targets_equivalents:
                         equivalent_targets = targets_equivalents[target]
-                        new_target_sentences: List[List[str]] = []
+                        new_target_sentences: List[str] = []
+                        new_target_sentence_lengths: List[int] = []
                         for equivalent_target in equivalent_targets:
                             try:
                                 new_target_sentence = train_sample.replace_target(index, equivalent_target)['text']
                             except OverLappingTargetsError:
+                                # Reason why we can have not `new_target_sentences`
                                 index_targets[index] = [target]
                                 continue
-                            new_target_sentence = ' '.join(tokenizer(new_target_sentence))
+                            new_tokenized_sentence = tokenizer(new_target_sentence)
+                            new_target_sentence_lengths.append(len(new_tokenized_sentence))
+                            new_target_sentence = ' '.join(new_tokenized_sentence)
                             new_target_sentences.append(new_target_sentence)
                         # To handle the case of errors caused by overlapping 
                         # targets which happens in the Election Twitter dataset
                         if new_target_sentences == []:
                             continue
-                        perplexities = sentence_perplexitys(transformer_model, another_reader, new_target_sentences)
+                        # Sort the sentences by sentence length for batching reasons.
+                        # The reason we want all the sentences to be of the same 
+                        # length when calculating the loss is due to the fact that 
+                        # the LM NN model adds a special character for sentences 
+                        # that are longer than the shortest sentence.
+                        sorted_target_indexs = np.argsort(new_target_sentence_lengths).tolist()
+                        sorted_sentences = [(new_target_sentences[sort_index], new_target_sentence_lengths[sort_index]) 
+                                            for sort_index in sorted_target_indexs]
+                        # Create batches where all of the batches are of the 
+                        # same length and no larger than batch_size
+                        sentence_batchs: List[List[str]] = []
+                        min_sentence_length = sorted_sentences[0][-1]
+                        a_batch = []
+                        first_sentence = True
+                        for sentence, sentence_length in sorted_sentences:
+                            if not first_sentence:
+                                if (sentence_length > min_sentence_length or 
+                                    batch_size == len(a_batch)):
+                                    sentence_batchs.append(a_batch)
+                                    a_batch = [] 
+                            a_batch.append(sentence)
+                            first_sentence = False
+                            min_sentence_length = sentence_length
+                        assert len(a_batch) > 0
+                        sentence_batchs.append(a_batch)
+                        # Calculate the perplexity scores
+                        perplexities = []
+                        for batch in sentence_batchs:
+                            batch_perplexity = sentence_perplexitys(transformer_model, 
+                                                                    dataset_reader, 
+                                                                    batch)
+                            perplexities.extend(batch_perplexity)
+                        # sort the perplexity scores back to the original 
+                        # sentence ordering
+                        temp_perplexities = [0] * len(sorted_target_indexs)
+                        for value_index, sort_index in enumerate(sorted_target_indexs):
+                            temp_perplexities[sort_index] = perplexities[value_index]
+                        perplexities = temp_perplexities
+                        # Filter the targets so that only those that have a lower 
+                        # perplexity than the original target are kept
                         filtered_equivalent_targets = [target]
                         for perplexity_index, perplexity in enumerate(perplexities):
                             if perplexity <= max_perplexity:

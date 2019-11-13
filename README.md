@@ -31,7 +31,7 @@ The validation and test sets are roughly equal in size.
 
 ## Augmenting the datasets through existing targets
 ### Extract Targets
-In this approach we are only going to use the targets that have occurred in the training dataset to augment the current training datasets. First we need to extract out all of the targets in the training datasets and store each of them in `./resources/target_words` as: 
+In this approach we are only going to use the targets that have occurred in the training dataset to augment the current training datasets. First we need to extract out all of the unique targets in the training datasets and store each of them in `./resources/target_words` as: 
 * `restaurant_train.txt` 
 * `laptop_train.txt`
 * `election_train.txt`:
@@ -42,19 +42,19 @@ In this approach we are only going to use the targets that have occurred in the 
 #### DS Word Embedding statistics
 The starting point of our data augmentation first starts by finding candidate targets for each target where the candidates are semantically equivalent targets for each target. To do this we are going to use our DS word embeddings to find those equivalent targets. To do so we first want to know how many of the targets (lower cased) can be represented by our DS embeddings:
 ``` bash
-./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 DS
+./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 DS not-predicted
 ```
-The argument 1.0 determines the fraction of the number of words that have to be in a multi word target for the target to be represented by the embedding through averaging the words vectors within the target. The `DS` argument states that we want to run this for the DS word embeddings.
+The argument 1.0 determines the fraction of the number of words that have to be in a multi word target for the target to be represented by the embedding through averaging the words vectors within the target. The `DS` argument states that we want to run this for the DS word embeddings. Lastly `not-predicted` means that we want to use targets extracted from the training data.
 
-| Dataset    | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3+     |
-|------------|-----------------------------|-------------|------------|-----------|
-| Laptop     | 739 (730)                   | 280 (275)   | 296 (292)  | 163 (163) |
-| Restaurant | 914 (888)                   | 379 (368)   | 326 (314)  | 209 (206) |
-| Election   | 1496 (1221)                 | 936 (746)   | 429 (362)  | 131 (113) |
+| Dataset    | Num Unique Targets (In Embedding)  | TL 1        | TL 2       | TL 3+     |
+|------------|------------------------------------|-------------|------------|-----------|
+| Laptop     | 739 (730)                          | 280 (275)   | 296 (292)  | 163 (163) |
+| Restaurant | 914 (888)                          | 379 (368)   | 326 (314)  | 209 (206) |
+| Election   | 1496 (1221)                        | 936 (746)   | 429 (362)  | 131 (113) |
 
-Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens". However TL 3+ contains targets that contain at least 3 tokens thus it can contain targets that have 10 tokens. 
+Where TL stands for Target Length e.g. TL 2 is a multi word target that is made up of 2 tokens e.g. "camera lens". However TL 3+ contains targets that contain at least 3 tokens thus it can contain targets that have 10 tokens.
 
-Across all of the dataset we have a very high TC 98.78%, 97.16%, and 81.62% for the Laptop, Restaurant, and Election datasets respectively. The Election dataset has the worse coverage which is not un-expected as it comes from Twitter which will have a high lexical diversity. The Multi-Word (MW) targets have a high coverage due to the embedding containing a lot of the individual words within the target and thus can represent the target as an average of it's words embeddings. However the number MW targets that the embedding contains without having to average the words is actually very low as shown in the table below:
+Across all of the dataset we have a very high Target Coverage (TC) 98.78%, 97.16%, and 81.62% for the Laptop, Restaurant, and Election datasets respectively. The Election dataset has the worse coverage which is not un-expected as it comes from Twitter which will have a high lexical diversity. The Multi-Word (MW) targets have a high coverage due to the embedding containing a lot of the individual words within the target and thus can represent the target as an average of it's words embeddings. However the number MW targets that the embedding contains without having to average the words is actually very low as shown in the table below:
 
 | Dataset    | TL 2       | TL 3+     |
 |------------|------------|-----------|
@@ -71,15 +71,15 @@ Once this has ran the shrunk Glove Vectors can be found in the following directo
 
 Now we can find the number of targets within the general Glove embeddings:
 ``` bash
-./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 GLOVE
+./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 GLOVE not-predicted
 ```
 
-| Dataset                     | Num Targets (In Embedding)  | TL 1        | TL 2       | TL 3+     |
-|-----------------------------|-----------------------------|-------------|------------|-----------|
-| Laptop                      | 739 (736)                   | 280 (278)   | 296 (295)  | 163 (163) |
-| Restaurant                  | 914 (882)                   | 379 (364)   | 326 (314)  | 209 (204) |
-| Election                    | 1496 (1064)                 | 936 (636)   | 429 (324)  | 131 (104) |
-| Election (Twitter Vectors)  | 1496 (1090)                 | 936 (651)   | 429 (331)  | 131 (108) |
+| Dataset                     | Num Targets Unique (In Embedding)  | TL 1        | TL 2       | TL 3+     |
+|-----------------------------|------------------------------------|-------------|------------|-----------|
+| Laptop                      | 739 (736)                          | 280 (278)   | 296 (295)  | 163 (163) |
+| Restaurant                  | 914 (882)                          | 379 (364)   | 326 (314)  | 209 (204) |
+| Election                    | 1496 (1064)                        | 936 (636)   | 429 (324)  | 131 (104) |
+| Election (Twitter Vectors)  | 1496 (1090)                        | 936 (651)   | 429 (331)  | 131 (108) |
 
 Coverage difference:
 
@@ -92,18 +92,17 @@ Coverage difference:
 We can see the Glove vectors and DS are very similar in TC for the review datasets but for the Twitter the DS has a much higher coverage. Having a high coverage will mean that more samples will be able to be augmented and more likely to be able to find more semantically equivalent targets to augment with. Unlike the DS embedding the Glove embeddings do not contain MW targets without averaging.
 
 ### Finding semantically similar targets through word embeddings.
-#### Using only the original data
-##### Finding similar targets through the DS word embedding
-We thus want to use these embeddings to find targets that are semantically similar, therefore for each target within the TC find the top *N* most similar target words within the TC. In our case we use *N=15* (15 is just an arbitrary number but the higher this number is the more targets that the LM will have to consider in the next step, which is the more computationally expensive step. Therefore the lower *N* is the quicker the augmentation.):
+#### Finding similar targets through the DS word embedding
+We thus want to use these embeddings to find targets that are semantically similar, therefore for each target within the TC find the top *N* most similar target words within the TC. In our case we use *N=45* (45 is just an arbitrary number but the higher this number is the more targets that the LM will have to consider in the next step, which is the more computationally expensive step. Therefore the lower *N* is the quicker the augmentation.):
 ``` bash
-./tdsa_augmentation/data_augmentation/train_targets_embedding_expander.sh
+./tdsa_augmentation/data_augmentation/targets_embedding_expander.sh 45 1.0 not-predicted
 ```
 All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files: 
 * `laptop_train_expanded.json`
 * `restaurant_train_expanded.json`
 * `election_train_expanded.json`
 
-##### Narrowing the similar targets through a LM
+### Narrowing the similar targets through a LM
 Now that we have some strong semantic equivalent candidate words, we can shrink these candidates down further based on the context the original target originates from. To do this for each target and for each context the target appears in through out the training dataset the target will be replaced with one of the semantic equivalent target words. Each time a target is replaced in the training sentence if the LMs perplexity score for that sentence is less than (less in perplexity is better) the perplexity score of the original sentence then the target will be added to that training instance. **NOTE** as we are using the LMs per training instance, each target can have a different semantic equivalent target lists per training instance as the LM will have a different score for each target based on how well it fits into the sentence.
 
 The LMs we will use are the DS LMs, not the non-DS LM. This form of data augmentation is similar to combining the following two papers [1](https://www.aclweb.org/anthology/D15-1306/), [2](https://www.aclweb.org/anthology/P19-1328/) the former performs data augmentation based on top N similar words from a word embedding and the latter shows that using a BERT model's similarity between the original and the word substitution sentences are useful for evaluating lexical substitution.* 
@@ -117,23 +116,23 @@ To create these expanded training datasets run the following bash script which w
 * `./data/augmented_train/restaurant.json`
 * `./data/augmented_train/election.json`
 
+NOTE: The first argument to this bash script (15) is the batch size for the LM. The higher the batch size the larger the GPU memory you will require but the faster the script will run.
 ``` bash
-./tdsa_augmentation/data_augmentation/augmented_lm_train_dataset.sh
+./tdsa_augmentation/data_augmentation/augmented_lm_dataset.sh 15 not-predicted
 ```
 
-Now that we have the augmented training dataset we shall see how many new training samples we have (to get this table data run the command above the table and below this):
-
+Now that we have the augmented training dataset we shall see how many new training samples we have using the following command where `not-predicted` means that we are only using the training data.
 ``` bash
-./tdsa_augmentation/statistics/training_num_additional_targets.sh
+./tdsa_augmentation/statistics/number_additional_targets.sh not-predicted
 ```
 
 | Dataset    | Num samples  | Can be expanded | Expanded | More samples |
 |------------|--------------|-----------------|----------|--------------|
-| Laptop     | 1661         | 1040            |    528   | 1338         |
-| Restaurant | 2490         | 1829            |    675   | 1774         |
-| Election   | 6811         | 2370            |    1794  | 7184         |
+| Laptop     | 1,661        | 1,651           |    938   | 7,409        |
+| Restaurant | 2,490        | 2,463           |    1,440 | 11,207       |
+| Election   | 6,811        | 6,239           |    1,959 | 16,291       |
 
-We can see from the table above the limited number of targets in the word embedding reduces the number of targets that can be expanded by up to 66% shown by the `Can be expanded` column, further more the language model reduces this further as shown by the `Expanded` column. However in the case of the Election dataset the language model finds out of the *15* candidate targets (15 comes from the fact the embedder expanded each target by 15 (the *N* parameter)) a large proportion of them are good candidates. Lastly the fact that the language model finds a lot of these candidates to be good candidates it still only expands the dataset by just over 100% in the best case and 71% in the worse case. This expansion is fairly small considering it can be between 510% and 1095% of the training dataset if all 15 candidate targets are accepted by the language model. Furthermore the larger the choice of different semanticaly equivalent targets per target the more flexible the training dataset expansion can be.
+From the table above we can see that due to the high target coverage from the embeddings the vast majority of the samples in the training dataset can be expanded. After filtering the embeddings top *N* most similar words using the LM we have dramatically reduced the number of samples that can be expanded to a minimum of 28% of the dataset. However the samples that can be expanded typically have on average 7.7 semantically similar replaceable targets thus allowing us to have a fair choice of alternative targets to chose from for those samples.
 
 **What could be a good idea is to plot the target expander distribution and show that**
 
@@ -154,7 +153,11 @@ Here for each of the domains; 1. Restaurant, 2. Laptop, 3. Election we are going
 2. Predict on the relevant large un-labeled text corpora
 3. Extract out only the targets we have a 90% confidence are targets, where all of the target word(s) have at least 90% confidence they are that label.
 
-All trained Target Extraction systems are saved within the `./resources/data_augmentation/target_extraction_models` directory under their own directory; 1. `restaurant`, 2. `laptop`, 3. `election`. After training the respective Extraction systems we get the following F1 scores respectively:
+All trained Target Extraction systems are saved within the `./resources/data_augmentation/target_extraction_models` directory under their own directory; 
+1. `restaurant`
+2. `laptop`
+3. `election` 
+After training the respective Extraction systems we get the following F1 scores respectively:
 1. 88.47, current best on this dataset is [85.61](https://www.ijcai.org/proceedings/2018/0583.pdf). (Took around 70 minutes to predict on the relevant large un-labeled text corpora).
 2. 86.59, current best on this dataset is [84.26](https://www.aclweb.org/anthology/N19-1242). (Took around 82 minutes to predict on the relevant large un-labeled text corpora).
 3. 89.02, no paper to compare this score to. (Took around 103 minutes to predict on the relevant large un-labeled text corpora).
@@ -164,7 +167,11 @@ To re-create these results and create the predicted target extraction sequences 
 ./tdsa_augmentation/data_augmentation/run_train_predict.sh
 ```
 
-As the Target Extraction systems have been trained and have outputted there predictions on the `relevant large un-labeled text corpora` we can now extract out the 90% confident targets for each dataset and store them in `./resources/target_words` as `restaurant_predicted.txt`, `laptop_predicted.txt`, and `election_predicted.txt`. The targets that have been stored are not all of the targets just those that do not appear in the relevant training datasets:
+As the Target Extraction systems have been trained and have outputted there predictions on the `relevant large un-labeled text corpora` we can now extract out the 90% confident targets for each dataset and store them in `./resources/target_words` as:
+* `restaurant_predicted.txt`
+* `laptop_predicted.txt`
+* `election_predicted.txt`
+The targets that have been stored are not all of the targets just those that do not appear in the relevant training datasets:
 ``` bash
 ./tdsa_augmentation/data_augmentation/extract_predicted_targets.sh
 ```
@@ -179,40 +186,50 @@ All of the statistics below are number of unique lower cased targets from their 
 
 As we can the majority of the predicted targets have never been seen before in the training set, further more there are some targets (T\P) that have only ever been seen in the training, which is great as this means the training targets are still useful and high quality.
 
-Next we are going to call
+### Finding semantically similar targets through word embeddings.
+#### Finding similar targets through the DS word embedding
+Next we are going to see how many of the predicted targets occur in the relevant embedding (this is similar to the command within `DS Word Embedding statistics` but `predicted` here means that we use both just the targets from the predicted data).:
+
 ``` bash
-./tdsa_augmentation/statistics/predicted_target_in_embedding_stats.sh
+./tdsa_augmentation/statistics/target_in_embedding_stats.sh 1.0 DS predicted
 ```
 
-| Dataset    | Num Targets (In Embedding)  | TL 1             | TL 2           | TL 3        |
-|------------|-----------------------------|------------------|----------------|-------------|
-| Laptop     | 22,483 (5,922)              | 4,971 (4,131)    | 12,358 (1,791) | 5,154 (0)   |
-| Restaurant | 50,129 (8,597)              | 5,661 (5,087)    | 24,600 (3,510) | 19,868 (0)  |
-| Election   | 147,390 (51,572)            | 123,248 (44,426) | 21,929 (6,532) | 2,213 (614) |
+| Dataset    | Num Targets (In Embedding)  | TL 1             | TL 2            | TL 3            |
+|------------|-----------------------------|------------------|-----------------|-----------------|
+| Laptop     | 22,483 (21,455)             | 4,971 (4,131)    | 12,358 (12,206) | 5,152 (5,118)   |
+| Restaurant | 50,129 (48,762)             | 5,661 (5,087)    | 24,600 (24,074) | 19,868 (19,601) |
+| Election   | 147,390 (55,712)            | 123,248 (44,426) | 21,924 (10,282) | 2,213 (1,004)   |
 
-As we can see even though we have extracted a lot of targets that have never been seen only a subset of them can be used due to the embedding not containing all of the targets.
+As we can see for the review datasets we have a large coverage 95.43% and 97.27% for laptop and restaurant respectively but for the Twitter corpus it is very low 37.8%. This low coverage for the Twitter dataset is not un-expected due to the lexical diversity within Twitter data, but we can see the real numbers are very high 55,712 targets in total which is still the highest compared to the other datasets.
 
-We now need to combine the targets from the training with the predicted targets so that we can expand the training dataset using both the predicted and training targets.
+Like before we are now going to use these predicted targets to find similar targets to replace the original targets. However all the similar targets found for the original targets will be targets that have never been seen before in the training dataset. NOTE *N* is the same as before which is 45.
 ``` bash
-./tdsa_augmentation/combine_target_words.sh
+./tdsa_augmentation/data_augmentation/targets_embedding_expander.sh 45 1.0 predicted
 ```
-This creates three new target word list within the following folder `./resources/target_words` for the laptop, restaurant, and election datasets respectively with these file names `all_laptop.txt`, `all_restaurant.txt`, `all_election.txt`
+All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 
+1. `laptop_predicted_train_expanded.json`
+2. `restaurant_predicted_train_expanded.json`
+3. `election_predicted_train_expanded.json`
 
-Like before we are now going to use these predicted and training targets to find similar targets using the embedder for the training samples:
+### Narrowing the similar targets through a LM
+To create the expanded dataset we are going to filter these *N* similar targets like before using the LMs. The new expanded datasets will be found at the following paths for the laptop, restaurant and election domain at the following paths respectively: 
+1. `./data/augmented_train/laptop_predicted.json`
+2. `./data/augmented_train/restaurant_predicted.json`
+3. `./data/augmented_train/election_predicted.json`
 ``` bash
-./tdsa_augmentation/data_augmentation/predicted_train_targets_embedding_expander.sh
+./tdsa_augmentation/data_augmentation/augmented_lm_dataset.sh 15 predicted
 ```
-All of the expanded target words can be found at `./resources/data_augmentation/target_words` in the following files; 1. `laptop_predicted_train_expanded.json`, 2. `restaurant_predicted_train_expanded.json`, 3. `election_predicted_train_expanded.json`
 
-We want to find out the number of targets that came from the predicted targets that are in the *N* most similar targets.
+Now that we have the new augmented training datasets we can see how many more samples we have:
 ``` bash
-
+./tdsa_augmentation/statistics/number_additional_targets.sh predicted
 ```
 
-To create these expanded training datasets run the following bash script which will produce expanded datasets for the laptop, restaurant and election domain at the following paths respectively `./data/augmented_train/laptop_predicted.json`, `./data/augmented_train/restaurant_predicted.json`, `./data/augmented_train/election_predicted.json`
-``` bash
-./tdsa_augmentation/data_augmentation/augmented_lm_predicted_train_dataset.sh
-```
+| Dataset    | Num samples  | Can be expanded | Expanded | More samples |
+|------------|--------------|-----------------|----------|--------------|
+| Laptop     | 1,661        | 1,651           |    581   | 4,259        |
+| Restaurant | 2,490        | 2,463           |    717   | 6,468        |
+| Election   | 6,811        | 6,239           |    1,723 | 25,803       |
 
 
 python tdsa_augmentation/statistics/number_additional_targets.py ./data/augmented_train/laptop_predicted.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
@@ -252,27 +269,3 @@ Then within the `word_representation` folder are two json files `pred_test.json`
 
 ## Cross domain performance
 Each of the models in the baselines can be trained on one dataset but then applied to the other datasets to test the cross domain performance of these models.
-
-
-
-
-with N = 15
-Number of training samples 1661
-Number of training samples that had targets that can be expanded 1040
-Number of samples that can be expanded 537
-Counter({0: 503, 1: 190, 2: 114, 3: 71, 4: 51, 5: 40, 6: 18, 7: 12, 10: 10, 8: 10, 9: 6, 12: 4, 15: 4, 14: 3, 13: 2, 11: 2})
-Total more training samples from augmentation 1659
-
-
-Number of training samples 1661
-Number of training samples that had targets that can be expanded 1040
-Number of samples that can be expanded 664
-Counter({0: 376, 1: 222, 2: 109, 3: 80, 4: 55, 5: 43, 7: 27, 6: 27, 8: 25, 9: 14, 11: 8, 13: 7, 10: 7, 20: 5, 14: 4, 18: 4, 17: 4, 12: 4, 19: 3, 16: 3, 23: 2, 27: 2, 15: 2, 30: 2, 25: 2, 24: 1, 26: 1, 21: 1})
-Total more training samples from augmentation 2801
-
-
-Number of training samples 1661
-Number of training samples that had targets that can be expanded 1040
-Number of samples that can be expanded 641
-Counter({0: 399, 1: 216, 2: 100, 3: 79, 4: 55, 5: 41, 6: 27, 7: 26, 8: 24, 9: 13, 11: 9, 10: 7, 20: 5, 14: 4, 13: 4, 18: 4, 17: 4, 12: 4, 19: 3, 16: 3, 23: 2, 27: 2, 15: 2, 30: 2, 25: 2, 22: 1, 26: 1, 21: 1})
-Total more training samples from augmentation 2710

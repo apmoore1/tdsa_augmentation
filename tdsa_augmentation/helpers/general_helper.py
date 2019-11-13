@@ -10,6 +10,10 @@ def multi_word_targets(targets: List[str], lower: bool = True,
     :param targets: A list of targets where multi word targets will have 
                     there whitespace replaced with `_` to create a single 
                     word target. Spacy tokenizer determines multi word targets. 
+                    The tokenisation happens before lower casing the target
+                    when applicable. Furthermore any target when tokenised 
+                    is the same as another the later targets are not included 
+                    to avoid one target to multiple multi word target mappings.
     :param lower: if to lower case the target words.
     :param string_delimiter: The string to be used to join the target words 
                              together after they have been tokenised by the 
@@ -21,12 +25,21 @@ def multi_word_targets(targets: List[str], lower: bool = True,
     tokenizer = spacy_tokenizer()
     target_mapper = {}
     unique_targets = set()
+    tokenized_targets = set()
     for target in targets:
+        # This is done to avoid targets that are different until they are 
+        # tokenized.
+        tokenized_target = tokenizer(target)
+        tokenized_target = string_delimiter.join(tokenized_target)
+        if lower:
+            tokenized_target = tokenized_target.lower()
+        if tokenized_target in tokenized_targets:
+            continue
+        tokenized_targets.add(tokenized_target)
         if lower:
             target = target.lower()
         unique_targets.add(target)
-        tokenized_target = tokenizer(target)
-        target_mapper[target] = string_delimiter.join(tokenized_target)
+        target_mapper[target] = tokenized_target
     assert_err = 'The length of the multi word targets is not the same '\
                  'as the non-multi-word targets'
     assert len(unique_targets) == len(target_mapper), assert_err

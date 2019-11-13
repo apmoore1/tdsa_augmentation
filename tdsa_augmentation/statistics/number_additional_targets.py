@@ -32,7 +32,7 @@ if __name__=='__main__':
             number_training_samples += number_targets
             for target_index in range(number_targets):
                 original_target = training_sample['targets'][target_index]
-                if original_target not in targets_equivalents:
+                if original_target.lower() not in targets_equivalents:
                     continue 
                 number_targets_expanded += 1
 
@@ -40,6 +40,7 @@ if __name__=='__main__':
                 expanded_targets = training_sample[expanded_target_key]
                 assert original_target in expanded_targets
                 number_expanded_targets = len(expanded_targets) - 1
+                assert len(expanded_targets) == len(set(expanded_targets))
                 expanded_target_counts.update([number_expanded_targets])
 
     total_more_samples = 0
@@ -51,5 +52,5 @@ if __name__=='__main__':
     print(f'Number of training samples {number_training_samples}')
     print(f'Number of training samples that had targets that can be expanded {number_targets_expanded}')
     print(f'Number of samples that can be expanded {number_targets_can_be_expanded}')
-    print(expanded_target_counts)
+    print(sorted(expanded_target_counts.items(), key=lambda x: x[0]))
     print(f'Total more training samples from augmentation {total_more_samples}')
