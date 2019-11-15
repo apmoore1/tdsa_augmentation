@@ -1,0 +1,11 @@
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_laptop_1.json ./data/original_laptop_sentiment ./data/augmented_datasets/laptop/training
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_laptop_predicted_1.json ./data/original_laptop_sentiment ./data/augmented_datasets/laptop/predicted
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_laptop_combined.json ./data/original_laptop_sentiment ./data/augmented_datasets/laptop/combined
+
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_restaurant_1.json ./data/original_restaurant_sentiment ./data/augmented_datasets/restaurant/training
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_restaurant_predicted_1.json ./data/original_restaurant_sentiment ./data/augmented_datasets/restaurant/predicted
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_restaurant_combined.json ./data/original_restaurant_sentiment ./data/augmented_datasets/restaurant/combined
+
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_election_1.json ./data/original_election_sentiment ./data/augmented_datasets/election/training
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_election_predicted_1.json ./data/original_election_sentiment ./data/augmented_datasets/election/predicted
+python tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.py ./data/augmented_train/reformated_election_combined.json ./data/original_election_sentiment ./data/augmented_datasets/election/combined

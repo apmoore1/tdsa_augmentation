@@ -232,9 +232,76 @@ Now that we have the new augmented training datasets we can see how many more sa
 | Election   | 6,811        | 6,239           |    1,723 | 25,803       |
 
 
-python tdsa_augmentation/statistics/number_additional_targets.py ./data/augmented_train/laptop_predicted.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
+## Combining the augmented existing target dataset with the semi-supervised target datasets
 
-python tdsa_augmentation/statistics/number_target_in_similar.py ./resources/target_words/laptop_predicted.txt ./data/original_laptop_sentiment/train.json ./resources/data_augmentation/target_words/laptop_predicted_train_expanded.json
+Now that we have these extra samples that have come from targets that were predicted from an external non-annotated dataset we can combine them with the samples generated through using only the training data. This command will therefore create three new augmented datasets that can be found in the following folder `./data/augmented_train` where the laptop, restaurant, and election datasets can be found with the following file names in that folder:
+* `laptop_combined.json`
+* `restaurant_combined.json`
+* `election_combined.json`
+``` bash
+./tdsa_augmentation/data_augmentation/combine_train_predicted_datasets.sh
+```
+
+Given these combined datasets we can produce the new expanded statistics:
+``` bash
+./tdsa_augmentation/statistics/number_additional_targets.sh combined
+```
+
+| Dataset    | Num samples  | Can be expanded | Expanded | More samples |
+|------------|--------------|-----------------|----------|--------------|
+| Laptop     | 1,661        | 1,651           |    967   | 11,668       |
+| Restaurant | 2,490        | 2,463           |    1,489 | 17,675       |
+| Election   | 6,811        | 6,239           |    2,041 | 42,094       |
+
+## Formatting augmented training dataset for training models
+
+So far we have created three augmented datasets for each dataset using:
+1. Targets from the training data.
+2. Targets predicted from a large un-annotated in-domain corpora
+3. The combination of targets from point 1 and 2.
+
+Given these created datasets we need to transform them into the correct format which can be used to train our models:
+``` bash
+./tdsa_augmentation/data_creation/re_format_augmented_dataset.sh
+```
+17,848 11,051, 27,238
+31,173 19,482 48,165
+61,042 92,473 146,719
+
+Once re-formated we know have 3 different augmented datasets for each dataset, all can be found in the folder `./data/augmented_train`:
+1. Laptop
+  * `reformated_laptop_1.json` -- Targets from the training data
+  * `reformated_laptop_predicted_1.json` -- Targets predicted
+  * `reformated_laptop_combined.json` -- Combination of the above 2
+2. Restaurant
+  * `reformated_restaurant_1.json` -- Targets from the training data
+  * `reformated_restaurant_predicted_1.json` -- Targets predicted
+  * `reformated_restaurant_combined.json` -- Combination of the above 2
+3. Election
+  * `reformated_election_1.json` -- Targets from the training data
+  * `reformated_election_predicted_1.json` -- Targets predicted
+  * `reformated_election_combined.json` -- Combination of the above 2
+
+## Augmented Scores
+First we want to run the three methods across the whole augmented datasets, to do so we first need to put the datasets into folders that contain train, dev, and test files, where the train file is the augmented dataset. We do this for each of the datasets `laptop`, `restaurant`, and `election` as well as for there different augmented datasets that is:
+* Only using the targets from the training datasets.
+* Only using the predicted targets.
+* Combination of the above 2.
+Once the script below has been ran it will create these folders within `./data/augmented_datasets`.
+
+``` bash
+./tdsa_augmentation/data_creation/create_fully_augmented_dataset_folder.sh
+```
+
+Running the models use the following script where all of the results will be found within:
+`./save_data/augmented/all/augmentation_set/model/domain/word_embedding/`
+1. augmentation_set -- Is either `training`, `predicted`, or `combined`
+2. model -- either `ian`, `interae`, or `tdlstm`
+3. word_embedding -- `WE` for the GLOVE embedding
+The directory for each will contain `pred_test.json` and `pred_val.json` for the test and validation results respectively.
+``` bash
+./tdsa_augmentation/analysis/run_full_augmentation.sh $(which python) ./save_data/augmented/all/ 8 ./training_configs/
+```
 
 ## Baseline Scores
 First we need to convert our domain specific Word2Vec models () into Glove `.txt` format to do so run the following script:
